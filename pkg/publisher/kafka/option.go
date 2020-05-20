@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/grepplabs/mqtt-proxy/pkg/config"
 	"github.com/pkg/errors"
 	"time"
 )
@@ -12,6 +13,9 @@ type options struct {
 	workers          int
 	// see https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md
 	configMap kafka.ConfigMap
+
+	defaultTopic  string
+	topicMappings config.TopicMappings
 }
 
 func (o options) validate() error {
@@ -20,6 +24,9 @@ func (o options) validate() error {
 	}
 	if o.workers < 1 {
 		return errors.New("kafka.workers must be greater than 0")
+	}
+	if o.defaultTopic == "" && len(o.topicMappings.Mappings) == 0 {
+		return errors.New("kafka default topic or topic mappings must be provided")
 	}
 	return nil
 }
@@ -43,6 +50,18 @@ func WithGracePeriod(t time.Duration) Option {
 func WithBootstrapServers(s string) Option {
 	return optionFunc(func(o *options) {
 		o.bootstrapServers = s
+	})
+}
+
+func WithTopicMappings(topicMappings config.TopicMappings) Option {
+	return optionFunc(func(o *options) {
+		o.topicMappings = topicMappings
+	})
+}
+
+func WithDefaultTopic(s string) Option {
+	return optionFunc(func(o *options) {
+		o.defaultTopic = s
 	})
 }
 

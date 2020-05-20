@@ -218,8 +218,10 @@ func propertiesWithPrefix(config kafka.ConfigMap, prefix string, strip bool) kaf
 
 func (s *Publisher) newKafkaMessage(req *apis.PublishRequest, opaque interface{}) (*kafka.Message, error) {
 
-	//TODO: map mqtt topic to kafka topic
-	kafkaTopic := "myTopic"
+	kafkaTopic, err := s.getKafkaTopic(req.TopicName)
+	if err != nil {
+		return nil, err
+	}
 
 	headers := []kafka.Header{
 		{Key: mqttQosHeader, Value: []byte(strconv.FormatUint(uint64(req.Qos), 10))},
@@ -234,6 +236,18 @@ func (s *Publisher) newKafkaMessage(req *apis.PublishRequest, opaque interface{}
 		Opaque:         opaque,
 		Headers:        headers,
 	}, nil
+}
+
+func (s *Publisher) getKafkaTopic(mqttTopic string) (string, error) {
+	for _, mapping := range s.opts.topicMappings.Mappings {
+		if mapping.RegExp.MatchString(mqttTopic) {
+			return mapping.Topic, nil
+		}
+	}
+	if s.opts.defaultTopic != "" {
+		return s.opts.defaultTopic, nil
+	}
+	return "", errors.Errorf("Kafka topic not found for MQTT topic %", mqttTopic)
 }
 
 func (s *Publisher) Publish(ctx context.Context, request *apis.PublishRequest) (*apis.PublishResponse, error) {

@@ -44,8 +44,11 @@ func registerServer(m map[string]setupFunc, app *kingpin.Application) {
 	cmd.Flag("mqtt.handler.allow-unauthenticated", "Allow unauthenticated MQTT requests.").Default("false").BoolVar(&cfg.MQTT.Handler.AllowUnauthenticated)
 
 	cmd.Flag("mqtt.publisher.name", "Publisher name. One of: [noop, kafka]").Default(config.Kafka).EnumVar(&cfg.MQTT.Publisher.Name, config.Noop, config.Kafka)
-	cmd.Flag("mqtt.publisher.kafka.config", "Comma separated list of properties (prop=val)").PlaceHolder("PROP=VAL").SetValue(&cfg.MQTT.Publisher.Kafka.ConfArgs)
+	cmd.Flag("mqtt.publisher.kafka.config", "Comma separated list of properties").PlaceHolder("PROP=VAL").SetValue(&cfg.MQTT.Publisher.Kafka.ConfArgs)
 	cmd.Flag("mqtt.publisher.kafka.bootstrap-servers", "Kafka bootstrap servers").Default("localhost:9092").StringVar(&cfg.MQTT.Publisher.Kafka.BootstrapServers)
+	cmd.Flag("mqtt.publisher.kafka.grace-period", "Time to wait after an interrupt received for Kafka publisher.").Default("10s").DurationVar(&cfg.MQTT.Publisher.Kafka.GracePeriod)
+	cmd.Flag("mqtt.publisher.kafka.default-topic", "Default Kafka topic for MQTT publish messages").Default("").StringVar(&cfg.MQTT.Publisher.Kafka.DefaultTopic)
+	cmd.Flag("mqtt.publisher.kafka.topic-mappings", "Comma separated list of Kafka topic to MQTT topic mappings").PlaceHolder("TOPIC=REGEX").SetValue(&cfg.MQTT.Publisher.Kafka.TopicMappings)
 
 	m[command] = func(group *run.Group, logger log.Logger, registry *prometheus.Registry) error {
 		return runServer(group, logger, registry, cfg)
@@ -90,7 +93,13 @@ func runServer(
 				return errors.Wrap(err, "setup noop publisher")
 			}
 		case config.Kafka:
-			publisher, err = kafka.New(logger, registry, kafka.WithBootstrapServers(cfg.MQTT.Publisher.Kafka.BootstrapServers))
+			publisher, err = kafka.New(logger, registry,
+				kafka.WithBootstrapServers(cfg.MQTT.Publisher.Kafka.BootstrapServers),
+				kafka.WithDefaultTopic(cfg.MQTT.Publisher.Kafka.DefaultTopic),
+				kafka.WithTopicMappings(cfg.MQTT.Publisher.Kafka.TopicMappings),
+				kafka.WithConfigMap(cfg.MQTT.Publisher.Kafka.ConfArgs.ConfigMap()),
+				kafka.WithGracePeriod(cfg.MQTT.Publisher.Kafka.GracePeriod),
+			)
 			if err != nil {
 				return errors.Wrap(err, "setup kafka publisher")
 			}
