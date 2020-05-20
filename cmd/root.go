@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ import (
 
 type setupFunc func(*run.Group, log.Logger, *prometheus.Registry) error
 
-func main() {
+func Execute() {
 	app := kingpin.New(filepath.Base(os.Args[0]), "MQTT Proxy")
 
 	app.Version(version.Print("mqtt-proxy"))

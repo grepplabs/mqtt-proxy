@@ -35,11 +35,11 @@ test:
 	GO111MODULE=on go test -mod=vendor -v ./...
 
 build:
-	CGO_ENABLED=1 GO111MODULE=on go build -mod=vendor -o $(BINARY) $(BUILD_FLAGS) -ldflags "$(LDFLAGS)" ./cmd/...
+	CGO_ENABLED=1 GO111MODULE=on go build -mod=vendor -o $(BINARY) $(BUILD_FLAGS) -ldflags "$(LDFLAGS)" .
 
 .PHONY: os-build
 os-build:
-	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=1 GO111MODULE=on go build -mod=vendor -o $(BINARY) $(BUILD_FLAGS) -ldflags "$(LDFLAGS)" ./cmd/...
+	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=1 GO111MODULE=on go build -mod=vendor -o $(BINARY) $(BUILD_FLAGS) -ldflags "$(LDFLAGS)" .
 
 .PHONY: docker-build
 docker-build:
