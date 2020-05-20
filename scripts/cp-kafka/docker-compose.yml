@@ -1,0 +1,52 @@
+---
+version: '3'
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:5.5.0
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  broker:
+    image: confluentinc/cp-kafka:5.5.0
+    hostname: broker
+    container_name: broker
+    depends_on:
+      - zookeeper
+    ports:
+      - "19092:19092"
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:19092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+  mqtt-proxy:
+    hostname: mqtt-proxy
+    container_name: mqtt-proxy
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    command:
+      - server
+      - '--mqtt.publisher.name=kafka'
+      - '--mqtt.publisher.kafka.bootstrap-servers=broker:19092'
+      - '--mqtt.publisher.kafka.default-topic=mqtt-test'
+    depends_on:
+      - broker
+    ports:
+      - 1883:1883/tcp
+      - 9090:9090/tcp
+    restart: unless-stopped
+  mqtt-client:
+    image: eclipse-mosquitto
+    hostname: mqtt-client
+    container_name: mqtt-client
