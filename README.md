@@ -57,3 +57,4 @@ metric | labels | description
 |mqtt_proxy_server_connections_total| |Total number of TCP connections from clients to server.|
 |mqtt_proxy_handler_requests_total|type|Total number of MQTT requests labeled by package control type. |
 |mqtt_proxy_handler_responses_total|type|Total number of MQTT responses labeled by package control type. |
+|mqtt_proxy_publisher_publish_duration_seconds | name, type, qos | Histogram tracking latencies for publish requests. |

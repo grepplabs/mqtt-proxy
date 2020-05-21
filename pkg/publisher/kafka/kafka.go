@@ -27,6 +27,7 @@ const (
 )
 const (
 	shutdownPollInterval = 500 * time.Millisecond
+	publisherName        = "kafka"
 )
 
 type kafkaProducer struct {
@@ -54,6 +55,8 @@ type Publisher struct {
 }
 
 func New(logger log.Logger, registry *prometheus.Registry, opts ...Option) (*Publisher, error) {
+	logger = logger.WithField("publisher", publisherName)
+
 	options := options{workers: 1}
 	for _, o := range opts {
 		o.apply(&options)
@@ -133,6 +136,10 @@ func (s *Publisher) shutdown(ctx context.Context) error {
 		case <-ticker.C:
 		}
 	}
+}
+
+func (s Publisher) Name() string {
+	return publisherName
 }
 
 func (s *Publisher) Close() error {

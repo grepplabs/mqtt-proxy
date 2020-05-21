@@ -23,6 +23,7 @@ type PublishResponse struct {
 type PublishCallbackFunc func(*PublishRequest, *PublishResponse)
 
 type Publisher interface {
+	Name() string
 	Publish(context.Context, *PublishRequest) (*PublishResponse, error)
 	PublishAsync(context.Context, *PublishRequest, PublishCallbackFunc) error
 	Serve() error

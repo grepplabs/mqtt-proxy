@@ -6,6 +6,7 @@ import (
 	"github.com/grepplabs/mqtt-proxy/pkg/log"
 	mqtthandler "github.com/grepplabs/mqtt-proxy/pkg/mqtt/handler"
 	"github.com/grepplabs/mqtt-proxy/pkg/prober"
+	"github.com/grepplabs/mqtt-proxy/pkg/publisher/instrument"
 	"github.com/grepplabs/mqtt-proxy/pkg/publisher/kafka"
 	"github.com/grepplabs/mqtt-proxy/pkg/publisher/noop"
 	httpserver "github.com/grepplabs/mqtt-proxy/pkg/server/http"
@@ -110,6 +111,7 @@ func runServer(
 		default:
 			return errors.Errorf("Unknown publisher %s", cfg.MQTT.Publisher.Name)
 		}
+		publisher = instrument.New(publisher, registry)
 
 		group.Add(func() error {
 			return publisher.Serve()
