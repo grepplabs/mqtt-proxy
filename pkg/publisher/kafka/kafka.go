@@ -247,7 +247,7 @@ func (s *Publisher) getKafkaTopic(mqttTopic string) (string, error) {
 	if s.opts.defaultTopic != "" {
 		return s.opts.defaultTopic, nil
 	}
-	return "", errors.Errorf("Kafka topic not found for MQTT topic %", mqttTopic)
+	return "", errors.Errorf("Kafka topic not found for MQTT topic %s", mqttTopic)
 }
 
 func (s *Publisher) Publish(ctx context.Context, request *apis.PublishRequest) (*apis.PublishResponse, error) {

@@ -29,7 +29,8 @@ func newTestPublisherOrExit() *Publisher {
 	publisher, err := New(logger, registry,
 		WithBootstrapServers(bootstrapServers),
 		WithGracePeriod(60*time.Second),
-		WithConfigMap(defaultConfig))
+		WithConfigMap(defaultConfig),
+		WithDefaultTopic("mqtt-test"))
 
 	if err != nil {
 		logger.WithError(err).Errorf("kafka publisher creation failed")
@@ -39,11 +40,10 @@ func newTestPublisherOrExit() *Publisher {
 }
 
 func TestPublishIT(t *testing.T) {
-	/*
-		if os.Getenv("IT") != "yes" {
-			t.Skip("Skipping IT test")
-		}
-	*/
+
+	//if os.Getenv("IT") != "yes" {
+	//	t.Skip("Skipping IT test")
+	//}
 
 	publisher := newTestPublisherOrExit()
 	logger := publisher.logger
@@ -75,6 +75,10 @@ func TestPublishIT(t *testing.T) {
 }
 
 func TestPublishAsyncIT(t *testing.T) {
+	//if os.Getenv("IT") != "yes" {
+	//	t.Skip("Skipping IT test")
+	//}
+
 	publisher := newTestPublisherOrExit()
 
 	logger := publisher.logger

@@ -2,6 +2,7 @@ package mqtthandler
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	"time"
 
 	"github.com/grepplabs/mqtt-proxy/apis"
@@ -31,6 +32,10 @@ func (h *MQTTHandler) ServeMQTT(c mqttserver.Conn, p mqttcodec.ControlPacket) {
 	h.mux.ServeMQTT(c, p)
 }
 
+func (h *MQTTHandler) HandleFunc(messageType byte, handlerFunc mqttserver.HandlerFunc) {
+	h.mux.Handle(messageType, handlerFunc)
+}
+
 func (h *MQTTHandler) isAuthenticated(conn mqttserver.Conn, messageName string) bool {
 	if h.opts.allowUnauthenticated {
 		return true
@@ -43,101 +48,122 @@ func (h *MQTTHandler) isAuthenticated(conn mqttserver.Conn, messageName string) 
 	return true
 }
 
-func handleConnect(h *MQTTHandler) mqttserver.HandlerFunc {
-	return func(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
-		req := packet.(*mqttcodec.ConnectPacket)
+func (h *MQTTHandler) handleConnect(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
+	req := packet.(*mqttcodec.ConnectPacket)
 
-		h.logger.Infof("Handling MQTT message '%s' from /%v", req.MessageName(), conn.RemoteAddr())
+	h.logger.Infof("Handling MQTT message '%s' from /%v", req.MessageName(), conn.RemoteAddr())
 
-		//TODO: login with user password
+	//TODO: login with user password
 
-		if req.KeepAliveSeconds > 0 {
-			conn.Properties().SetIdleTimeout(time.Duration(float64(req.KeepAliveSeconds)*1.5) * time.Second)
+	if req.KeepAliveSeconds > 0 {
+		conn.Properties().SetIdleTimeout(time.Duration(float64(req.KeepAliveSeconds)*1.5) * time.Second)
+	}
+	conn.Properties().SetAuthenticated(true)
+
+	res := mqttcodec.NewControlPacket(mqttcodec.CONNACK)
+	err := res.Write(conn)
+	if err != nil {
+		h.logger.WithError(err).Errorf("Write 'CONNACK' failed")
+	} else {
+		h.metrics.responsesTotal.WithLabelValues(res.Name()).Inc()
+	}
+}
+
+func (h *MQTTHandler) handlePublish(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
+	req := packet.(*mqttcodec.PublishPacket)
+
+	h.logger.Debugf("Handling MQTT message '%s' from /%v", req.MessageName(), conn.RemoteAddr())
+
+	if !h.isAuthenticated(conn, req.MessageName()) {
+		return
+	}
+
+	var publishCallback apis.PublishCallbackFunc
+
+	switch req.Qos {
+	case mqttcodec.AT_MOST_ONCE:
+		publishCallback = func(*apis.PublishRequest, *apis.PublishResponse) {
+			// nothing to send back, publishCallback can be used for metrics
 		}
-		conn.Properties().SetAuthenticated(true)
+	case mqttcodec.AT_LEAST_ONCE:
+		publishCallback = func(request *apis.PublishRequest, response *apis.PublishResponse) {
+			if response.Error != nil {
+				//TODO: property if close connection unable to deliver ?
+				return
+			}
+			res := mqttcodec.NewControlPacket(mqttcodec.PUBACK).(*mqttcodec.PubackPacket)
+			res.MessageID = request.MessageID
+			err := res.Write(conn)
+			if err != nil {
+				h.logger.WithError(err).Errorf("Write 'PUBACK' failed")
+			} else {
+				h.metrics.responsesTotal.WithLabelValues(res.Name()).Inc()
+			}
+		}
+	case mqttcodec.EXACTLY_ONCE:
+		publishCallback = func(req *apis.PublishRequest, resp *apis.PublishResponse) {
+			if resp.Error != nil {
+				//TODO: property if close connection unable to deliver ?
+				return
+			}
+			res := mqttcodec.NewControlPacket(mqttcodec.PUBREC).(*mqttcodec.PubrecPacket)
+			res.MessageID = req.MessageID
+			err := res.Write(conn)
+			if err != nil {
+				h.logger.WithError(err).Errorf("Write 'PUBREC' failed")
+			} else {
+				h.metrics.responsesTotal.WithLabelValues(res.Name()).Inc()
+			}
+		}
+	default:
+		h.logger.Warnf("'PUBLISH' with invalid QoS '%d'. Ignoring", req.Qos)
+		return
+	}
 
-		res := mqttcodec.NewControlPacket(mqttcodec.CONNACK)
-		err := res.Write(conn)
-		if err != nil {
-			h.logger.WithError(err).Errorf("Write 'CONNACK' failed")
+	ctx := context.Background()
+	if h.opts.publishTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, h.opts.publishTimeout)
+		defer cancel()
+	}
+	err := h.doPublish(ctx, h.publisher, req, publishCallback)
+	if err != nil {
+		if req.Qos == mqttcodec.AT_MOST_ONCE {
+			h.logger.WithError(err).Warnf("Write 'PUBLISH' failed, ignoring ...")
 		} else {
-			h.metrics.responsesTotal.WithLabelValues(res.Name()).Inc()
+			h.logger.WithError(err).Errorf("Write 'PUBLISH' failed, closing the connection ...")
+			_ = conn.Close()
 		}
 	}
 }
 
-func handlePublish(h *MQTTHandler) mqttserver.HandlerFunc {
-	return func(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
-		req := packet.(*mqttcodec.PublishPacket)
-
-		h.logger.Debugf("Handling MQTT message '%s' from /%v", req.MessageName(), conn.RemoteAddr())
-
-		if !h.isAuthenticated(conn, req.MessageName()) {
-			return
+func (h *MQTTHandler) doPublish(ctx context.Context, publisher apis.Publisher, req *mqttcodec.PublishPacket, publishCallback apis.PublishCallbackFunc) error {
+	publishRequest := newPublishRequest(req)
+	if h.isPublishAsync(publishRequest.Qos) {
+		err := publisher.PublishAsync(ctx, publishRequest, publishCallback)
+		if err != nil {
+			return errors.Wrap(err, "async publish failed")
 		}
-
-		var publishCallback apis.PublishCallbackFunc
-
-		switch req.Qos {
-		case mqttcodec.AT_MOST_ONCE:
-			publishCallback = func(*apis.PublishRequest, *apis.PublishResponse) {
-				// nothing to send back, publishCallback can be used for metrics
-			}
-		case mqttcodec.AT_LEAST_ONCE:
-			publishCallback = func(request *apis.PublishRequest, response *apis.PublishResponse) {
-				if response.Error != nil {
-					//TODO: property if close connection unable to deliver ?
-					return
-				}
-				res := mqttcodec.NewControlPacket(mqttcodec.PUBACK).(*mqttcodec.PubackPacket)
-				res.MessageID = request.MessageID
-				err := res.Write(conn)
-				if err != nil {
-					h.logger.WithError(err).Errorf("Write 'PUBACK' failed")
-				} else {
-					h.metrics.responsesTotal.WithLabelValues(res.Name()).Inc()
-				}
-			}
-		case mqttcodec.EXACTLY_ONCE:
-			publishCallback = func(req *apis.PublishRequest, resp *apis.PublishResponse) {
-				if resp.Error != nil {
-					//TODO: property if close connection unable to deliver ?
-					return
-				}
-				res := mqttcodec.NewControlPacket(mqttcodec.PUBREC).(*mqttcodec.PubrecPacket)
-				res.MessageID = req.MessageID
-				err := res.Write(conn)
-				if err != nil {
-					h.logger.WithError(err).Errorf("Write 'PUBREC' failed")
-				} else {
-					h.metrics.responsesTotal.WithLabelValues(res.Name()).Inc()
-				}
-			}
-		default:
-			h.logger.Warnf("'PUBLISH' with invalid QoS '%d'. Ignoring", req.Qos)
-			return
+	} else {
+		publishResponse, err := publisher.Publish(ctx, publishRequest)
+		if err != nil {
+			return errors.Wrap(err, "sync publish failed")
 		}
-
-		publishRequest := newPublishRequest(req)
-		// TODO: configure in the properties (sync default ? for all to keep order in kafka)
-		// TODO: mosquito cannot handle out order confirmations
-		if publishRequest.Qos == 0 {
-			err := h.publisher.PublishAsync(context.Background(), publishRequest, publishCallback)
-			if err != nil {
-				h.logger.WithError(err).Errorf("Write 'PUBLISH' failed")
-				//TODO: property if close connection unable to deliver ?
-			}
-		} else {
-			// TODO: can add timeout for publish ?
-			publishResponse, err := h.publisher.Publish(context.Background(), publishRequest)
-			if err != nil {
-				h.logger.WithError(err).Errorf("Write 'PUBLISH' failed")
-				//TODO: property if close connection unable to deliver ?
-				return
-			}
-			publishCallback(publishRequest, publishResponse)
-		}
+		publishCallback(publishRequest, publishResponse)
 	}
+	return nil
+}
+
+func (h MQTTHandler) isPublishAsync(qos byte) bool {
+	switch qos {
+	case mqttcodec.AT_MOST_ONCE:
+		return h.opts.publishAsyncAtMostOnce
+	case mqttcodec.AT_LEAST_ONCE:
+		return h.opts.publishAsyncAtLeastOnce
+	case mqttcodec.EXACTLY_ONCE:
+		return h.opts.publishAsyncExactlyOnce
+	}
+	return false
 }
 
 func newPublishRequest(req *mqttcodec.PublishPacket) *apis.PublishRequest {
@@ -151,45 +177,39 @@ func newPublishRequest(req *mqttcodec.PublishPacket) *apis.PublishRequest {
 	}
 }
 
-func handlePublishRelease(h *MQTTHandler) mqttserver.HandlerFunc {
-	return func(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
-		req := packet.(*mqttcodec.PubrelPacket)
+func (h *MQTTHandler) handlePublishRelease(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
+	req := packet.(*mqttcodec.PubrelPacket)
 
-		if !h.isAuthenticated(conn, req.MessageName()) {
-			return
-		}
+	if !h.isAuthenticated(conn, req.MessageName()) {
+		return
+	}
 
-		h.logger.Debugf("Handling MQTT message '%s' from /%v", req.MessageName(), conn.RemoteAddr())
-		res := mqttcodec.NewControlPacket(mqttcodec.PUBCOMP).(*mqttcodec.PubcompPacket)
-		res.MessageID = req.MessageID
-		err := res.Write(conn)
-		if err != nil {
-			h.logger.WithError(err).Errorf("Write 'PUBCOMP' failed")
-		}
+	h.logger.Debugf("Handling MQTT message '%s' from /%v", req.MessageName(), conn.RemoteAddr())
+	res := mqttcodec.NewControlPacket(mqttcodec.PUBCOMP).(*mqttcodec.PubcompPacket)
+	res.MessageID = req.MessageID
+	err := res.Write(conn)
+	if err != nil {
+		h.logger.WithError(err).Errorf("Write 'PUBCOMP' failed")
 	}
 }
 
-func handlePing(h *MQTTHandler) mqttserver.HandlerFunc {
-	return func(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
-		req := packet.(*mqttcodec.PingreqPacket)
+func (h *MQTTHandler) handlePing(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
+	req := packet.(*mqttcodec.PingreqPacket)
 
-		h.logger.Debugf("Handling MQTT message '%s' from /%v", req.MessageName(), conn.RemoteAddr())
-		res := mqttcodec.NewControlPacket(mqttcodec.PINGRESP)
-		err := res.Write(conn)
-		if err != nil {
-			h.logger.WithError(err).Errorf("Write 'PINGRESP' failed")
-		}
+	h.logger.Debugf("Handling MQTT message '%s' from /%v", req.MessageName(), conn.RemoteAddr())
+	res := mqttcodec.NewControlPacket(mqttcodec.PINGRESP)
+	err := res.Write(conn)
+	if err != nil {
+		h.logger.WithError(err).Errorf("Write 'PINGRESP' failed")
 	}
 }
 
-func handleDisconnect(h *MQTTHandler) mqttserver.HandlerFunc {
-	return func(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
-		req := packet.(*mqttcodec.DisconnectPacket)
-		h.logger.Infof("Handling MQTT message '%s' from /%v", req.MessageName(), conn.RemoteAddr())
-		err := conn.Close()
-		if err != nil {
-			h.logger.WithError(err).Warnf("Closing connection on 'DISCONNECT' failed")
-		}
+func (h *MQTTHandler) handleDisconnect(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
+	req := packet.(*mqttcodec.DisconnectPacket)
+	h.logger.Infof("Handling MQTT message '%s' from /%v", req.MessageName(), conn.RemoteAddr())
+	err := conn.Close()
+	if err != nil {
+		h.logger.WithError(err).Warnf("Closing connection on 'DISCONNECT' failed")
 	}
 }
 
@@ -205,11 +225,11 @@ func New(logger log.Logger, registry *prometheus.Registry, publisher apis.Publis
 		metrics:   newMQTTMetrics(registry),
 		publisher: publisher,
 	}
-	h.mux.Handle(mqttcodec.CONNECT, handleConnect(h))
-	h.mux.Handle(mqttcodec.PUBLISH, handlePublish(h))
-	h.mux.Handle(mqttcodec.DISCONNECT, handleDisconnect(h))
-	h.mux.Handle(mqttcodec.PUBREL, handlePublishRelease(h))
-	h.mux.Handle(mqttcodec.PINGREQ, handlePing(h))
+	h.HandleFunc(mqttcodec.CONNECT, h.handleConnect)
+	h.HandleFunc(mqttcodec.PUBLISH, h.handlePublish)
+	h.HandleFunc(mqttcodec.DISCONNECT, h.handleDisconnect)
+	h.HandleFunc(mqttcodec.PUBREL, h.handlePublishRelease)
+	h.HandleFunc(mqttcodec.PINGREQ, h.handlePing)
 	return h
 
 }

@@ -42,6 +42,10 @@ func registerServer(m map[string]setupFunc, app *kingpin.Application) {
 	cmd.Flag("mqtt.server-tls-client-ca", "TLS CA to verify clients against. If no client CA is specified, there is no client verification on server side. (tls.NoClientCert)").Default("").StringVar(&cfg.MQTT.TLSSrv.ClientCA)
 
 	cmd.Flag("mqtt.handler.allow-unauthenticated", "Allow unauthenticated MQTT requests.").Default("false").BoolVar(&cfg.MQTT.Handler.AllowUnauthenticated)
+	cmd.Flag("mqtt.handler.publish.timeout", "Maximum duration of sending publish request to broker.").Default("0s").DurationVar(&cfg.MQTT.Handler.Publish.Timeout)
+	cmd.Flag("mqtt.handler.publish.async.at-most-once", "Async publish for AT_MOST_ONCE QoS.").Default("false").BoolVar(&cfg.MQTT.Handler.Publish.Async.AtMostOnce)
+	cmd.Flag("mqtt.handler.publish.async.at-least-once", "Async publish for AT_LEAST_ONCE QoS.").Default("false").BoolVar(&cfg.MQTT.Handler.Publish.Async.AtLeastOnce)
+	cmd.Flag("mqtt.handler.publish.async.exactly-once", "Async publish for EXACTLY_ONCE QoS.").Default("false").BoolVar(&cfg.MQTT.Handler.Publish.Async.ExactlyOnce)
 
 	cmd.Flag("mqtt.publisher.name", "Publisher name. One of: [noop, kafka]").Default(config.Kafka).EnumVar(&cfg.MQTT.Publisher.Name, config.Noop, config.Kafka)
 	cmd.Flag("mqtt.publisher.kafka.config", "Comma separated list of properties").PlaceHolder("PROP=VAL").SetValue(&cfg.MQTT.Publisher.Kafka.ConfArgs)
@@ -88,7 +92,7 @@ func runServer(
 
 		switch cfg.MQTT.Publisher.Name {
 		case config.Noop:
-			publisher, err = noop.New(logger)
+			publisher, err = noop.New(logger, registry)
 			if err != nil {
 				return errors.Wrap(err, "setup noop publisher")
 			}
@@ -122,7 +126,12 @@ func runServer(
 		}
 
 		handler := mqtthandler.New(logger, registry, publisher,
-			mqtthandler.WithAllowUnauthenticated(cfg.MQTT.Handler.AllowUnauthenticated))
+			mqtthandler.WithAllowUnauthenticated(cfg.MQTT.Handler.AllowUnauthenticated),
+			mqtthandler.WithPublishTimeout(cfg.MQTT.Handler.Publish.Timeout),
+			mqtthandler.WithPublishAsyncAtMostOnce(cfg.MQTT.Handler.Publish.Async.AtMostOnce),
+			mqtthandler.WithPublishAsyncAtLeastOnce(cfg.MQTT.Handler.Publish.Async.AtLeastOnce),
+			mqtthandler.WithPublishAsyncExactlyOnce(cfg.MQTT.Handler.Publish.Async.ExactlyOnce),
+		)
 
 		srv := mqttserver.New(logger, registry, httpProbe,
 			mqttserver.WithListen(cfg.MQTT.ListenAddress),

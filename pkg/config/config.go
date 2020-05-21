@@ -36,6 +36,14 @@ type Server struct {
 		}
 		Handler struct {
 			AllowUnauthenticated bool
+			Publish              struct {
+				Timeout time.Duration
+				Async   struct {
+					AtMostOnce  bool
+					AtLeastOnce bool
+					ExactlyOnce bool
+				}
+			}
 		}
 		Publisher struct {
 			Name string
