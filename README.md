@@ -2,6 +2,8 @@
 
 **Work in progress**
 
+![Build](https://github.com/grepplabs/mqtt-proxy/workflows/build/badge.svg)
+
 MQTT Proxy allows MQTT clients to send messages to other messaging systems
 
 

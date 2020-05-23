@@ -41,9 +41,9 @@ func newTestPublisherOrExit() *Publisher {
 
 func TestPublishIT(t *testing.T) {
 
-	//if os.Getenv("IT") != "yes" {
-	//	t.Skip("Skipping IT test")
-	//}
+	if os.Getenv("IT") != "yes" {
+		t.Skip("Skipping IT test")
+	}
 
 	publisher := newTestPublisherOrExit()
 	logger := publisher.logger
@@ -75,9 +75,9 @@ func TestPublishIT(t *testing.T) {
 }
 
 func TestPublishAsyncIT(t *testing.T) {
-	//if os.Getenv("IT") != "yes" {
-	//	t.Skip("Skipping IT test")
-	//}
+	if os.Getenv("IT") != "yes" {
+		t.Skip("Skipping IT test")
+	}
 
 	publisher := newTestPublisherOrExit()
 
