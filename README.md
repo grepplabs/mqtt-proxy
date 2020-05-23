@@ -4,6 +4,19 @@
 
 MQTT Proxy allows MQTT clients to send messages to other messaging systems
 
+
+## Implementation status
+
+* MQTT protocol
+    * [x] [MQTT 3.1.1](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/mqtt-v3.1.1.html)
+    * [ ] [MQTT 5.0](https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.html)
+* Publisher
+    * [x] [Apache Kafka](https://kafka.apache.org/)
+    * [ ] [Apache Pulsar](https://pulsar.apache.org/)
+    * [ ] Others
+* [ ] Authentication
+* [ ] Helm chart
+
 ## Build
 ### build binary
 
