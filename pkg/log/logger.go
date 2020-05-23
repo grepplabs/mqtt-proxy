@@ -75,10 +75,19 @@ type Logger interface {
 	IsFatal() bool
 }
 
+type LogFieldNames struct {
+	Time    string
+	Message string
+	Level   string
+	Caller  string
+	Error   string
+}
+
 // Configuration stores the config for the logger
 type Configuration struct {
-	LogFormat string
-	LogLevel  string
+	LogFormat     string
+	LogLevel      string
+	LogFieldNames LogFieldNames
 }
 
 //NewLogger returns an instance of logger

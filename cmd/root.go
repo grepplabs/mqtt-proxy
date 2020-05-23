@@ -24,8 +24,14 @@ func Execute() {
 	app.Version(version.Print("mqtt-proxy"))
 	app.HelpFlag.Short('h')
 
-	logLevel := app.Flag("log.level", "Log filtering One of: [fatal, error, warn, info, debug]").Default(log.Info).Enum(log.Fatal, log.Error, log.Warn, log.Info, log.Debug)
-	logFormat := app.Flag("log.format", "Log format to use. One of: [logfmt, json, plain]").Default(log.LogFormatLogfmt).Enum(log.LogFormatLogfmt, log.LogFormatJson, log.LogFormatPlain)
+	logConfig := log.Configuration{}
+	app.Flag("log.level", "Log filtering One of: [fatal, error, warn, info, debug]").Default(log.Info).EnumVar(&logConfig.LogLevel, log.Fatal, log.Error, log.Warn, log.Info, log.Debug)
+	app.Flag("log.format", "Log format to use. One of: [logfmt, json, plain]").Default(log.LogFormatLogfmt).EnumVar(&logConfig.LogFormat, log.LogFormatLogfmt, log.LogFormatJson, log.LogFormatPlain)
+	app.Flag("log.field-name.time", "Log time field name").Default(log.TimeKey).StringVar(&logConfig.LogFieldNames.Time)
+	app.Flag("log.field-name.message", "Log message field name").Default(log.MessageKey).StringVar(&logConfig.LogFieldNames.Message)
+	app.Flag("log.field-name.error", "Log error field name").Default(log.ErrorKey).StringVar(&logConfig.LogFieldNames.Error)
+	app.Flag("log.field-name.caller", "Log caller field name").Default(log.CallerKey).StringVar(&logConfig.LogFieldNames.Caller)
+	app.Flag("log.field-name.level", "Log time field name").Default(log.LevelKey).StringVar(&logConfig.LogFieldNames.Level)
 
 	cmds := map[string]setupFunc{}
 
@@ -38,10 +44,7 @@ func Execute() {
 		os.Exit(2)
 	}
 
-	logger := log.NewLogger(log.Configuration{
-		LogLevel:  *logLevel,
-		LogFormat: *logFormat,
-	})
+	logger := log.NewLogger(logConfig)
 
 	undo, err := maxprocs.Set(maxprocs.Logger(func(template string, args ...interface{}) {
 		logger.Debugf(template, args...)

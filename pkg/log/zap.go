@@ -11,18 +11,19 @@ import (
 type zapLogger struct {
 	sugaredLogger *zap.SugaredLogger
 	level         zapcore.Level
+	errorKey      string
 }
 
-func getEncoder(logFormat string) zapcore.Encoder {
+func getEncoder(config Configuration) zapcore.Encoder {
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	encoderConfig.TimeKey = TimeKey
-	encoderConfig.MessageKey = MessageKey
-	encoderConfig.LevelKey = LevelKey
-	encoderConfig.CallerKey = CallerKey
+	encoderConfig.TimeKey = getStringOrDefault(config.LogFieldNames.Time, TimeKey)
+	encoderConfig.MessageKey = getStringOrDefault(config.LogFieldNames.Message, MessageKey)
+	encoderConfig.LevelKey = getStringOrDefault(config.LogFieldNames.Level, LevelKey)
+	encoderConfig.CallerKey = getStringOrDefault(config.LogFieldNames.Caller, CallerKey)
 	encoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
 
-	switch logFormat {
+	switch config.LogFormat {
 	case LogFormatJson:
 		return zapcore.NewJSONEncoder(encoderConfig)
 	case LogFormatLogfmt:
@@ -30,6 +31,13 @@ func getEncoder(logFormat string) zapcore.Encoder {
 	default:
 		return zapcore.NewConsoleEncoder(encoderConfig)
 	}
+}
+
+func getStringOrDefault(value, defValue string) string {
+	if value != "" {
+		return value
+	}
+	return defValue
 }
 
 func getZapLevel(level string) zapcore.Level {
@@ -56,7 +64,7 @@ func newZapLogger(config Configuration) Logger {
 
 	level := getZapLevel(config.LogLevel)
 	writer := zapcore.Lock(os.Stderr)
-	core := zapcore.NewCore(getEncoder(config.LogFormat), writer, level)
+	core := zapcore.NewCore(getEncoder(config), writer, level)
 	cores = append(cores, core)
 
 	combinedCore := zapcore.NewTee(cores...)
@@ -71,6 +79,7 @@ func newZapLogger(config Configuration) Logger {
 	return &zapLogger{
 		sugaredLogger: logger,
 		level:         level,
+		errorKey:      getStringOrDefault(config.LogFieldNames.Error, ErrorKey),
 	}
 }
 
@@ -133,7 +142,7 @@ func (l *zapLogger) WithFields(fields Fields) Logger {
 		f = append(f, v)
 	}
 	newLogger := l.sugaredLogger.With(f...)
-	return &zapLogger{newLogger, l.level}
+	return &zapLogger{newLogger, l.level, l.errorKey}
 }
 
 func (l *zapLogger) WithField(key, value string) Logger {
@@ -144,5 +153,5 @@ func (l *zapLogger) WithError(err error) Logger {
 	if err == nil {
 		return l
 	}
-	return l.WithFields(Fields{ErrorKey: err.Error()})
+	return l.WithFields(Fields{l.errorKey: err.Error()})
 }

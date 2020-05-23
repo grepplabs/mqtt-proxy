@@ -59,6 +59,10 @@ func TestZapLogger(t *testing.T) {
 			debug: false, info: false, warn: false, error: false, panic: false, fatal: true}},
 		{"json with error", NewLogger(Configuration{LogFormat: LogFormatJson, LogLevel: "info"}).WithError(errors.New("my error")), LevelEnabled{
 			debug: false, info: true, warn: true, error: true, fatal: true, panic: true}},
+		{"json changed field names", NewLogger(Configuration{LogFormat: LogFormatJson, LogLevel: "info", LogFieldNames: LogFieldNames{
+			Time: "time", Message: "message", Level: "lvl", Caller: "call", Error: "error",
+		}}).WithError(errors.New("my error")), LevelEnabled{
+			debug: false, info: true, warn: true, error: true, fatal: true, panic: true}},
 		{"logfmt debug", NewLogger(Configuration{LogFormat: LogFormatLogfmt, LogLevel: Debug}), LevelEnabled{
 			debug: true, info: true, warn: true, error: true, panic: true, fatal: true}},
 		{"logfmt info", NewLogger(Configuration{LogFormat: LogFormatLogfmt, LogLevel: Info}), LevelEnabled{
@@ -72,6 +76,10 @@ func TestZapLogger(t *testing.T) {
 		{"logfmt fatal", NewLogger(Configuration{LogFormat: LogFormatLogfmt, LogLevel: Fatal}), LevelEnabled{
 			debug: false, info: false, warn: false, error: false, panic: false, fatal: true}},
 		{"logfmt with error", NewLogger(Configuration{LogFormat: LogFormatLogfmt, LogLevel: "info"}).WithError(errors.New("my error")), LevelEnabled{
+			debug: false, info: true, warn: true, error: true, fatal: true, panic: true}},
+		{"logfmt changed field names", NewLogger(Configuration{LogFormat: LogFormatLogfmt, LogLevel: "info", LogFieldNames: LogFieldNames{
+			Time: "time", Message: "message", Level: "lvl", Caller: "call", Error: "error",
+		}}).WithError(errors.New("my error")), LevelEnabled{
 			debug: false, info: true, warn: true, error: true, fatal: true, panic: true}},
 	}
 	{
