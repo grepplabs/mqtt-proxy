@@ -81,4 +81,8 @@ release-setup:
 release-publish: release-setup
 	@[ "${GITHUB_TOKEN}" ] && echo "releasing $(TAG)" || ( echo "GITHUB_TOKEN is not set"; exit 1 )
 	git push origin $(TAG)
-	$(ROOT_DIR)/bin/goreleaser release --rm-dist
+	REVISION=$(REVISION) BRANCH=$(BRANCH) BUILD_DATE=$(BUILD_DATE) $(ROOT_DIR)/bin/goreleaser release --rm-dist
+
+.PHONY: release-snapshot
+release-snapshot:
+	REVISION=$(REVISION) BRANCH=$(BRANCH) BUILD_DATE=$(BUILD_DATE) $(ROOT_DIR)/bin/goreleaser --debug --rm-dist --snapshot --skip-publish

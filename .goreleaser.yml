@@ -1,0 +1,31 @@
+dist: dist
+builds:
+  - main: ./main.go
+    env:
+      - CGO_ENABLED=1
+      - GO111MODULE=on
+      - GOFLAGS=-mod=vendor
+    goos:
+      - linux
+    goarch:
+      - amd64
+    ldflags:
+      - -w -s
+      - -X "github.com/prometheus/common/version.Version={{ .Tag }}"
+      - -X "github.com/prometheus/common/version.Revision={{ .Env.REVISION }}"
+      - -X "github.com/prometheus/common/version.Branch={{ .Env.BRANCH }}"
+      - -X "github.com/prometheus/common/version.BuildUser={{ .Env.USER }}"
+      - -X "github.com/prometheus/common/version.BuildDate={{ .Env.BUILD_DATE }}"
+archives:
+  - name_template: "{{ .ProjectName }}-{{ .Tag }}-{{ .Os }}-{{ .Arch }}"
+    wrap_in_directory: false
+    files:
+      - LICENSE
+checksum:
+  name_template: 'CHECKSUM'
+release:
+  github:
+    owner: grepplabs
+    name: mqtt-proxy
+  draft: true
+  prerelease: auto
