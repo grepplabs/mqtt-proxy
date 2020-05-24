@@ -3,6 +3,8 @@
 **Work in progress**
 
 ![Build](https://github.com/grepplabs/mqtt-proxy/workflows/build/badge.svg)
+[![Docker Hub](https://img.shields.io/badge/docker-latest-blue.svg)](https://hub.docker.com/r/grepplabs/mqtt-proxy)
+[![Docker Pulls](https://img.shields.io/docker/pulls/grepplabs/mqtt-proxy)](https://hub.docker.com/r/grepplabs/mqtt-proxy)
 
 MQTT Proxy allows MQTT clients to send messages to other messaging systems
 
