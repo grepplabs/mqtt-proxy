@@ -3,7 +3,8 @@ package mqtthandler
 import "time"
 
 type options struct {
-	allowUnauthenticated    bool
+	ignoreUnsupported       []string
+	allowUnauthenticated    []string
 	publishTimeout          time.Duration
 	publishAsyncAtMostOnce  bool
 	publishAsyncAtLeastOnce bool
@@ -20,9 +21,15 @@ func (f optionFunc) apply(o *options) {
 	f(o)
 }
 
-func WithAllowUnauthenticated(b bool) Option {
+func WithIgnoreUnsupported(a []string) Option {
 	return optionFunc(func(o *options) {
-		o.allowUnauthenticated = b
+		o.ignoreUnsupported = a
+	})
+}
+
+func WithAllowUnauthenticated(a []string) Option {
+	return optionFunc(func(o *options) {
+		o.allowUnauthenticated = a
 	})
 }
 

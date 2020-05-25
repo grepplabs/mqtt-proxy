@@ -64,6 +64,16 @@ prerequisites
     watch -c 'curl -s localhost:9090/metrics | grep mqtt | egrep -v '^#''
     ```
 
+## Configuration
+### Examples
+
+- Ignore subscribe / unsubscribe requests
+
+```
+mqtt-proxy server  --mqtt.publisher.name=noop --mqtt.handler.ignore-unsupported SUBSCRIBE --mqtt.handler.ignore-unsupported UNSUBSCRIBE
+```
+
+
 ## Metrics
 
 

@@ -61,7 +61,8 @@ func (mux *ServeMux) Handle(messageType byte, handler Handler) {
 func (mux *ServeMux) ServeMQTT(c Conn, p mqttcodec.ControlPacket) {
 	entry := mux.m[p.Type()]
 	if entry.h == nil {
-		mux.logger.Debugf("No handler available for MQTT message '%s' from /%v. Ignoring", p.Name(), c.RemoteAddr())
+		mux.logger.Warnf("No handler available for MQTT message '%s' from /%v. Disconnecting", p.Name(), c.RemoteAddr())
+		_ = c.Close()
 		return
 	}
 	entry.h.ServeMQTT(c, p)

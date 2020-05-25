@@ -35,7 +35,8 @@ type Server struct {
 			ClientCA string
 		}
 		Handler struct {
-			AllowUnauthenticated bool
+			IgnoreUnsupported    []string
+			AllowUnauthenticated []string
 			Publish              struct {
 				Timeout time.Duration
 				Async   struct {

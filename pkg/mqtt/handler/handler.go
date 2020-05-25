@@ -36,22 +36,25 @@ func (h *MQTTHandler) HandleFunc(messageType byte, handlerFunc mqttserver.Handle
 	h.mux.Handle(messageType, handlerFunc)
 }
 
-func (h *MQTTHandler) isAuthenticated(conn mqttserver.Conn, messageName string) bool {
-	if h.opts.allowUnauthenticated {
-		return true
-	}
-	if !conn.Properties().Authenticated() {
-		h.logger.Warnf("Unauthenticated '%s' from /%v", messageName, conn.RemoteAddr())
-		_ = conn.Close()
+func (h *MQTTHandler) disconnectUnauthenticated(conn mqttserver.Conn, packet mqttcodec.ControlPacket) bool {
+	if conn.Properties().Authenticated() {
 		return false
 	}
+	name := packet.Name()
+	for _, v := range h.opts.allowUnauthenticated {
+		if v == name {
+			return false
+		}
+	}
+	h.logger.Warnf("Unauthenticated '%s' from /%v", name, conn.RemoteAddr())
+	_ = conn.Close()
 	return true
 }
 
 func (h *MQTTHandler) handleConnect(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
 	req := packet.(*mqttcodec.ConnectPacket)
 
-	h.logger.Infof("Handling MQTT message '%s' from /%v", req.MessageName(), conn.RemoteAddr())
+	h.logger.Infof("Handling MQTT message '%s' from /%v", req.Name(), conn.RemoteAddr())
 
 	//TODO: login with user password
 
@@ -72,11 +75,11 @@ func (h *MQTTHandler) handleConnect(conn mqttserver.Conn, packet mqttcodec.Contr
 func (h *MQTTHandler) handlePublish(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
 	req := packet.(*mqttcodec.PublishPacket)
 
-	h.logger.Debugf("Handling MQTT message '%s' from /%v", req.MessageName(), conn.RemoteAddr())
-
-	if !h.isAuthenticated(conn, req.MessageName()) {
+	if h.disconnectUnauthenticated(conn, packet) {
 		return
 	}
+
+	h.logger.Debugf("Handling MQTT message '%s' from /%v", req.Name(), conn.RemoteAddr())
 
 	var publishCallback apis.PublishCallbackFunc
 
@@ -180,11 +183,11 @@ func newPublishRequest(req *mqttcodec.PublishPacket) *apis.PublishRequest {
 func (h *MQTTHandler) handlePublishRelease(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
 	req := packet.(*mqttcodec.PubrelPacket)
 
-	if !h.isAuthenticated(conn, req.MessageName()) {
+	if h.disconnectUnauthenticated(conn, packet) {
 		return
 	}
 
-	h.logger.Debugf("Handling MQTT message '%s' from /%v", req.MessageName(), conn.RemoteAddr())
+	h.logger.Debugf("Handling MQTT message '%s' from /%v", req.Name(), conn.RemoteAddr())
 	res := mqttcodec.NewControlPacket(mqttcodec.PUBCOMP).(*mqttcodec.PubcompPacket)
 	res.MessageID = req.MessageID
 	err := res.Write(conn)
@@ -196,7 +199,11 @@ func (h *MQTTHandler) handlePublishRelease(conn mqttserver.Conn, packet mqttcode
 func (h *MQTTHandler) handlePing(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
 	req := packet.(*mqttcodec.PingreqPacket)
 
-	h.logger.Debugf("Handling MQTT message '%s' from /%v", req.MessageName(), conn.RemoteAddr())
+	if h.disconnectUnauthenticated(conn, packet) {
+		return
+	}
+
+	h.logger.Debugf("Handling MQTT message '%s' from /%v", req.Name(), conn.RemoteAddr())
 	res := mqttcodec.NewControlPacket(mqttcodec.PINGRESP)
 	err := res.Write(conn)
 	if err != nil {
@@ -206,11 +213,15 @@ func (h *MQTTHandler) handlePing(conn mqttserver.Conn, packet mqttcodec.ControlP
 
 func (h *MQTTHandler) handleDisconnect(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
 	req := packet.(*mqttcodec.DisconnectPacket)
-	h.logger.Infof("Handling MQTT message '%s' from /%v", req.MessageName(), conn.RemoteAddr())
+	h.logger.Infof("Handling MQTT message '%s' from /%v", req.Name(), conn.RemoteAddr())
 	err := conn.Close()
 	if err != nil {
 		h.logger.WithError(err).Warnf("Closing connection on 'DISCONNECT' failed")
 	}
+}
+
+func (h *MQTTHandler) ignore(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
+	h.logger.Debugf("No handler available for MQTT message '%s' from /%v. Ignoring", packet.Name(), conn.RemoteAddr())
 }
 
 func New(logger log.Logger, registry *prometheus.Registry, publisher apis.Publisher, opts ...Option) *MQTTHandler {
@@ -230,6 +241,19 @@ func New(logger log.Logger, registry *prometheus.Registry, publisher apis.Publis
 	h.HandleFunc(mqttcodec.DISCONNECT, h.handleDisconnect)
 	h.HandleFunc(mqttcodec.PUBREL, h.handlePublishRelease)
 	h.HandleFunc(mqttcodec.PINGREQ, h.handlePing)
+
+	for _, name := range options.ignoreUnsupported {
+		for t, n := range mqttcodec.MqttMessageTypeNames {
+			if n == name {
+				logger.Infof("%s requests will be ignored", name)
+				h.HandleFunc(t, h.ignore)
+				continue
+			}
+		}
+	}
+	for _, name := range options.allowUnauthenticated {
+		logger.Infof("%s requests will be allow unauthenticated", name)
+	}
 	return h
 
 }
