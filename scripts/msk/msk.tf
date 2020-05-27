@@ -35,12 +35,10 @@ resource "aws_msk_cluster" "mqtt-proxy-cluster" {
     security_groups = [ aws_security_group.mqtt-proxy-cluster-security-group.id]
     ebs_volume_size = var.kafka_broker_ebs_volume_size
   }
-  # https://docs.aws.amazon.com/msk/latest/developerguide/msk-authentication.html
-  client_authentication {
-    tls {
-      certificate_authority_arns = [
 
-      ]
+  encryption_info {
+    encryption_in_transit {
+      client_broker = "TLS_PLAINTEXT"
     }
   }
 }

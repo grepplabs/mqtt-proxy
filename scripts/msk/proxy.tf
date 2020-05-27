@@ -1,3 +1,13 @@
+data "template_file" "mqtt-proxy-init" {
+  template = file("${path.module}/proxy.tpl")
+
+  vars = {
+    mqtt_proxy_version = var.mqtt_proxy_version
+    kafka_proxy_version = var.kafka_proxy_version
+    bootstrap_servers = aws_msk_cluster.mqtt-proxy-cluster.bootstrap_brokers
+  }
+}
+
 resource "aws_instance" "mqtt-proxy" {
   count                  = var.mqtt_proxy_enable ? 1 : 0
   ami                    = data.aws_ami.ubuntu-focal.id
@@ -6,16 +16,7 @@ resource "aws_instance" "mqtt-proxy" {
   iam_instance_profile   = aws_iam_instance_profile.mqtt-proxy-profile.id
   vpc_security_group_ids = [aws_security_group.mqtt-proxy-security-group.id]
   key_name               = aws_key_pair.mqtt-proxy-key-pair.key_name
-  user_data              = <<EOF
-#!/usr/bin/env bash
-curl -Ls https://github.com/grepplabs/mqtt-proxy/releases/download/${var.mqtt_proxy_version}/mqtt-proxy-${var.mqtt_proxy_version}-linux-amd64.tar.gz | tar xz
-mv ./mqtt-proxy /usr/local/bin/mqtt-proxy
-
-# kafka-proxy is not required by mqtt-proxy
-curl -Ls https://github.com/grepplabs/kafka-proxy/releases/download/${var.kafka_proxy_version}/kafka-proxy-${var.kafka_proxy_version}-linux-amd64.tar.gz | tar xz
-mv ./kafka-proxy /usr/local/bin/kafka-proxy
-
-EOF
+  user_data              = data.template_file.mqtt-proxy-init.rendered
 }
 
 data "aws_ami" "ubuntu-focal" {
@@ -26,7 +27,11 @@ data "aws_ami" "ubuntu-focal" {
     values = [
       "*ubuntu-focal-*"]
   }
-
+  filter {
+    name = "architecture"
+    values = [
+      "x86_64"]
+  }
   filter {
     name = "virtualization-type"
     values = [

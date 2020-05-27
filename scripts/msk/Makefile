@@ -26,6 +26,10 @@ tf-apply: tf-init
 tf-destroy:
 	terraform destroy -input=false -auto-approve
 
+.PHONY: tf-output
+tf-output:
+	terraform output
+
 .PHONY: sso-login
 sso-login:
 	aws sso login --profile $(SSO_PROFILE)
