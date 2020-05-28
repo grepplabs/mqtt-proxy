@@ -1,6 +1,6 @@
 FROM golang:1.14-alpine3.11 as builder
 
-RUN apk add alpine-sdk
+RUN apk add alpine-sdk ca-certificates
 
 WORKDIR "/code"
 ADD . "/code"

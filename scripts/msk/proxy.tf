@@ -5,6 +5,7 @@ data "template_file" "mqtt-proxy-init" {
     mqtt_proxy_version = var.mqtt_proxy_version
     kafka_proxy_version = var.kafka_proxy_version
     bootstrap_servers = aws_msk_cluster.mqtt-proxy-cluster.bootstrap_brokers
+    bootstrap_servers_tls = aws_msk_cluster.mqtt-proxy-cluster.bootstrap_brokers_tls
   }
 }
 
@@ -81,7 +82,7 @@ resource "aws_security_group" "mqtt-proxy-security-group" {
 
   ingress {
     from_port = 1883
-    to_port = 1883
+    to_port = 1884
     protocol = "tcp"
     cidr_blocks = [
       "0.0.0.0/0"]
@@ -95,7 +96,7 @@ resource "aws_security_group" "mqtt-proxy-security-group" {
   }
   ingress {
     from_port = 9090
-    to_port = 9090
+    to_port = 9091
     protocol = "tcp"
     cidr_blocks = [
       "0.0.0.0/0"]

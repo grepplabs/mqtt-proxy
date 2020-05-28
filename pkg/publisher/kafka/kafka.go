@@ -203,7 +203,7 @@ func producerProperties(qos byte, opts options) *kafka.ConfigMap {
 	for k, v := range propertiesWithPrefix(opts.configMap, "producer.", true) {
 		_ = configMap.SetKey(k, v)
 	}
-	for k, v := range propertiesWithPrefix(opts.configMap, fmt.Sprintf("{qos=%d}.producer.", qos), true) {
+	for k, v := range propertiesWithPrefix(opts.configMap, fmt.Sprintf("{qos-%d}.producer.", qos), true) {
 		_ = configMap.SetKey(k, v)
 	}
 	return &configMap

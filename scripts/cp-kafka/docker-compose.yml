@@ -18,17 +18,38 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "19092:19092"
       - "9092:9092"
+      - "9093:9093"
+      - "9094:9094"
+      - "9095:9095"
+      - "19092:19092"
+      - "19093:19093"
+      - "19094:19094"
+      - "19095:19095"
+    volumes:
+      - $PWD/security:/etc/kafka/secrets
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:19092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_PLAINTEXT_HOST:SASL_PLAINTEXT,SSL:SSL,SSL_HOST:SSL,SASL_SSL:SASL_SSL,SASL_SSL_HOST:SASL_SSL
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:19092,PLAINTEXT_HOST://localhost:9092,SASL_PLAINTEXT://broker:19093,SASL_PLAINTEXT_HOST://localhost:9093,SSL://broker:19094,SSL_HOST://localhost:9094,SASL_SSL://broker:19095,SASL_SSL_HOST://localhost:9095
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      # KAFKA_OPTS: -Djava.security.auth.login.config=/etc/kafka/secrets/broker_jaas.conf -Djavax.net.debug=all
+      KAFKA_OPTS: -Djava.security.auth.login.config=/etc/kafka/secrets/broker_jaas.conf
+      KAFKA_ZOOKEEPER_SASL_CLIENT: 'FALSE'
+      ZOOKEEPER_SASL_CLIENT: 'FALSE'
+      ZOOKEEPER_SASL_ENABLED: 'FALSE'
+      KAFKA_SSL_KEYSTORE_FILENAME: certs/docker.kafka.server.keystore.jks
+      KAFKA_SSL_KEYSTORE_CREDENTIALS: certs/docker.kafka.server.keystore.passwd
+      KAFKA_SSL_KEY_CREDENTIALS: certs/docker.kafka.server.key.passwd
+      KAFKA_SSL_TRUSTSTORE_FILENAME: certs/docker.kafka.server.truststore.jks
+      KAFKA_SSL_TRUSTSTORE_CREDENTIALS: certs/docker.kafka.server.truststore.passwd
+      # none, requested, required
+      KAFKA_SSL_CLIENT_AUTH: requested
   mqtt-proxy:
     hostname: mqtt-proxy
     container_name: mqtt-proxy
@@ -45,6 +66,28 @@ services:
     ports:
       - 1883:1883/tcp
       - 9090:9090/tcp
+    restart: unless-stopped
+  mqtt-proxy-ssl:
+    hostname: mqtt-proxy-ssl
+    container_name: mqtt-proxy-ssl
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    command:
+      - server
+      - '--mqtt.publisher.name=kafka'
+      - '--mqtt.listen-address=0.0.0.0:1884'
+      - '--http.listen-address=0.0.0.0:9091'
+      - '--mqtt.publisher.kafka.bootstrap-servers=broker:19094'
+      - '--mqtt.publisher.kafka.default-topic=mqtt-test'
+      - '--mqtt.publisher.kafka.config=producer.security.protocol=SSL,producer.ssl.ca.location=/etc/mqtt-proxy/secrets/certs/ca-cert.pem'
+    depends_on:
+      - broker
+    ports:
+      - 1884:1884/tcp
+      - 9091:9091/tcp
+    volumes:
+      - $PWD/security:/etc/mqtt-proxy/secrets
     restart: unless-stopped
   mqtt-client:
     image: eclipse-mosquitto

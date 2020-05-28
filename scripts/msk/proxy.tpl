@@ -33,7 +33,7 @@ spec:
     env:
     - name: HOSTNAME
     - name: container
-      value: podman
+      value: mqtt-proxy
     image: docker.io/grepplabs/mqtt-proxy:latest
     name: mqtt-proxy
     ports:
@@ -43,7 +43,27 @@ spec:
     - containerPort: 1883
       hostPort: 1883
       protocol: TCP
-
+  - command:
+    - server
+    - --mqtt.publisher.name=kafka
+    - --mqtt.publisher.kafka.bootstrap-servers=${bootstrap_servers_tls}
+    - --mqtt.publisher.kafka.default-topic=mqtt-test
+    - --mqtt.listen-address=0.0.0.0:1884
+    - --http.listen-address=0.0.0.0:9091
+    - --mqtt.publisher.kafka.config=producer.security.protocol=SSL
+    env:
+    - name: HOSTNAME
+    - name: container
+      value: mqtt-proxy-tls
+    image: docker.io/grepplabs/mqtt-proxy:latest
+    name: mqtt-proxy-tls
+    ports:
+    - containerPort: 9091
+      hostPort: 9091
+      protocol: TCP
+    - containerPort: 1884
+      hostPort: 1884
+      protocol: TCP
 POD_FILE
 
 tee /etc/systemd/system/mqtt-proxy.service <<SYSTEMD_FILE
