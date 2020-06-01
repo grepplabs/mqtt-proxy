@@ -22,6 +22,11 @@ GOOS          ?= linux
 LOCAL_IMAGE   ?= local/$(BINARY)
 CLOUD_IMAGE   ?= grepplabs/mqtt-proxy:$(TAG)
 
+HELM_BIN	  ?= helm3
+HELM_VALUES	  ?= noop
+SVC_NAME      ?= mqtt-proxy
+SVC_NAMESPACE ?= mqtt
+
 ROOT_DIR      := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 default: build
@@ -86,3 +91,25 @@ release-publish: release-setup
 .PHONY: release-snapshot
 release-snapshot:
 	REVISION=$(REVISION) BRANCH=$(BRANCH) BUILD_DATE=$(BUILD_DATE) $(ROOT_DIR)/bin/goreleaser --debug --rm-dist --snapshot --skip-publish
+
+
+.PHONY: helm-template
+helm-template:
+	$(HELM_BIN) template $(SVC_NAME) $(ROOT_DIR)/charts/mqtt-proxy \
+	   -f $(ROOT_DIR)/charts/mqtt-proxy/values-$(HELM_VALUES).yaml \
+	   --namespace=$(SVC_NAMESPACE)
+
+.PHONY: helm-install
+helm-install:
+	$(HELM_BIN) upgrade $(SVC_NAME) $(ROOT_DIR)/charts/mqtt-proxy \
+	   -f $(ROOT_DIR)/charts/mqtt-proxy/values-$(HELM_VALUES).yaml \
+	   --namespace=$(SVC_NAMESPACE) \
+	   --install \
+	   --create-namespace
+
+.PHONY: helm-test
+helm-test:
+	$(HELM_BIN) test $(SVC_NAME) \
+		--namespace=$(SVC_NAMESPACE)
+
+

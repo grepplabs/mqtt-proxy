@@ -49,7 +49,7 @@ func registerServer(m map[string]setupFunc, app *kingpin.Application) {
 	cmd.Flag("mqtt.handler.publish.async.at-least-once", "Async publish for AT_LEAST_ONCE QoS.").Default("false").BoolVar(&cfg.MQTT.Handler.Publish.Async.AtLeastOnce)
 	cmd.Flag("mqtt.handler.publish.async.exactly-once", "Async publish for EXACTLY_ONCE QoS.").Default("false").BoolVar(&cfg.MQTT.Handler.Publish.Async.ExactlyOnce)
 
-	cmd.Flag("mqtt.publisher.name", "Publisher name. One of: [noop, kafka]").Default(config.Kafka).EnumVar(&cfg.MQTT.Publisher.Name, config.Noop, config.Kafka)
+	cmd.Flag("mqtt.publisher.name", "Publisher name. One of: [noop, kafka]").Default(config.Noop).EnumVar(&cfg.MQTT.Publisher.Name, config.Noop, config.Kafka)
 	cmd.Flag("mqtt.publisher.kafka.config", "Comma separated list of properties").PlaceHolder("PROP=VAL").SetValue(&cfg.MQTT.Publisher.Kafka.ConfArgs)
 	cmd.Flag("mqtt.publisher.kafka.bootstrap-servers", "Kafka bootstrap servers").Default("localhost:9092").StringVar(&cfg.MQTT.Publisher.Kafka.BootstrapServers)
 	cmd.Flag("mqtt.publisher.kafka.grace-period", "Time to wait after an interrupt received for Kafka publisher.").Default("10s").DurationVar(&cfg.MQTT.Publisher.Kafka.GracePeriod)

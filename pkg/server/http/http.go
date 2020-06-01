@@ -30,6 +30,7 @@ func New(logger log.Logger, registry *prometheus.Registry, prober *prober.HTTPPr
 	}
 
 	mux := http.NewServeMux()
+	registerRoot(mux)
 	registerMetrics(mux, registry)
 	registerProbes(mux, prober, logger)
 	registerProfiler(mux)
@@ -79,6 +80,18 @@ func registerProfiler(mux *http.ServeMux) {
 	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+}
+
+func registerRoot(mux *http.ServeMux) {
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`<html>
+             <head><title>MQTT Proxy</title></head>
+             <body>
+             <h1>MQTT Proxy</h1>
+             <p><a href='/metrics'>metrics</a></p>
+             </body>
+             </html>`))
+	})
 }
 
 func registerMetrics(mux *http.ServeMux, g prometheus.Gatherer) {

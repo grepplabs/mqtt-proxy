@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "mqtt-proxy.fullname" . }}-test-connection"
+  labels:
+    {{- include "mqtt-proxy.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test-success
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['{{ include "mqtt-proxy.fullname" . }}:{{ .Values.service.http.port }}/healthy']
+  restartPolicy: Never

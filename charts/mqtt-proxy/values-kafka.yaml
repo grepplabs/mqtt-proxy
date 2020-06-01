@@ -1,0 +1,12 @@
+image:
+  tag: latest
+
+serviceMonitor:
+  enabled: true
+
+extraArgs:
+  - server
+  - --mqtt.publisher.name=kafka
+  - --mqtt.publisher.kafka.bootstrap-servers=localhost:9094
+  - --mqtt.publisher.kafka.default-topic=mqtt-test
+  - --mqtt.publisher.kafka.config=producer.security.protocol=SSL

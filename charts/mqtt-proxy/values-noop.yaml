@@ -1,0 +1,12 @@
+image:
+  tag: latest
+
+serviceMonitor:
+  enabled: true
+
+extraArgs:
+  - server
+  - --mqtt.publisher.name=noop
+
+serviceExternal:
+  enabled: true

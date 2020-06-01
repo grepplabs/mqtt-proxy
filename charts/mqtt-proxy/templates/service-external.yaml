@@ -1,0 +1,43 @@
+{{- if .Values.serviceExternal.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mqtt-proxy.fullname" . }}-external
+  labels:
+    {{- include "mqtt-proxy.labels" . | nindent 4 }}
+    {{- with .Values.serviceExternal.labels -}}
+    {{ toYaml . | nindent 4 }}
+    {{- end }}
+{{- if .Values.serviceExternal.annotations }}
+  annotations:
+{{ tpl (toYaml .Values.serviceExternal.annotations) . | indent 4 }}
+{{- end }}
+spec:
+  type: {{ .Values.serviceExternal.type }}
+  ports:
+    - port: {{ .Values.serviceExternal.port }}
+      targetPort: mqtt
+      protocol: TCP
+      name: mqtt
+  {{- if ne .Values.serviceExternal.type "NodePort" }}
+  {{- if and (eq .Values.serviceExternal.type "LoadBalancer") (ne .Values.serviceExternal.clusterIP "None") }}
+  clusterIP: "{{ .Values.serviceExternal.clusterIP }}"
+  {{- end }}
+  {{- end }}
+  {{- if .Values.serviceExternal.externalIPs }}
+  externalIPs:
+  {{ toYaml .Values.serviceExternal.externalIPs | indent 4 }}
+  {{- end }}
+  {{- if .Values.serviceExternal.loadBalancerIP }}
+  loadBalancerIP: "{{ .Values.serviceExternal.loadBalancerIP }}"
+  {{- end }}
+  {{- if .Values.serviceExternal.externalTrafficPolicy }}
+  externalTrafficPolicy: "{{ .Values.serviceExternal.externalTrafficPolicy }}"
+  {{- end }}
+  {{- if .Values.serviceExternal.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+  {{ toYaml .Values.serviceExternal.loadBalancerSourceRanges | indent 4 }}
+  {{- end }}
+  selector:
+    {{- include "mqtt-proxy.selectorLabels" . | nindent 4 }}
+{{- end }}

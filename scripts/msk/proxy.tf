@@ -1,5 +1,5 @@
 data "template_file" "mqtt-proxy-init" {
-  template = file("${path.module}/proxy.tpl")
+  template = file("${path.module}/proxy.tpl.sh")
 
   vars = {
     mqtt_proxy_version = var.mqtt_proxy_version
