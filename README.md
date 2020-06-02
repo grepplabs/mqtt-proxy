@@ -19,7 +19,7 @@ MQTT Proxy allows MQTT clients to send messages to other messaging systems
     * [ ] [Apache Pulsar](https://pulsar.apache.org/)
     * [ ] Others
 * [ ] Authentication
-* [ ] Helm chart
+* [x] Helm chart
 
 ## Build
 ### build binary
@@ -29,6 +29,20 @@ MQTT Proxy allows MQTT clients to send messages to other messaging systems
 ### build docker image
 
     make clean docker-build
+
+## Helm 3 chart
+
+Deploy the Helm chart
+
+```bash
+git clone git@github.com:grepplabs/mqtt-proxy.git
+helm install mqtt-proxy ./mqtt-proxy/charts/mqtt-proxy \
+  --set image.tag=latest \
+  --set image.repository=grepplabs/mqtt-proxy \
+  --values  <(echo '{
+        "extraArgs" : ["server","--mqtt.publisher.name=noop"]
+    }')
+```
 
 ## Test
 
