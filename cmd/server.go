@@ -68,6 +68,11 @@ func runServer(
 	cfg *config.Server,
 ) error {
 
+	err := cfg.Validate()
+	if err != nil {
+		return err
+	}
+
 	httpProbe := prober.NewHTTP()
 	{
 		logger.Infof("setting up HTTP server")

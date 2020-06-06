@@ -20,7 +20,7 @@ type Server struct {
 }
 
 // New creates a new Server.
-func New(logger log.Logger, registry *prometheus.Registry, prober *prober.HTTPProbe, opts ...Option) *Server {
+func New(logger log.Logger, _ *prometheus.Registry, prober *prober.HTTPProbe, opts ...Option) *Server {
 	options := options{}
 	for _, o := range opts {
 		o.apply(&options)
@@ -28,13 +28,16 @@ func New(logger log.Logger, registry *prometheus.Registry, prober *prober.HTTPPr
 	mux := mqttserver.NewServeMux(logger)
 
 	s := &mqttserver.Server{
-		Network:      options.network,
-		Addr:         options.listen,
-		Handler:      options.handler,
-		ReadTimeout:  options.readTimeout,
-		WriteTimeout: options.writeTimeout,
-		TLSConfig:    options.tlsConfig,
-		ErrorLog:     logger,
+		Network:          options.network,
+		Addr:             options.listen,
+		Handler:          options.handler,
+		ReadTimeout:      options.readTimeout,
+		WriteTimeout:     options.writeTimeout,
+		IdleTimeout:      options.idleTimeout,
+		WriterBufferSize: options.writerBufferSize,
+		ReaderBufferSize: options.readerBufferSize,
+		TLSConfig:        options.tlsConfig,
+		ErrorLog:         logger,
 	}
 
 	return &Server{

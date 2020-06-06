@@ -61,6 +61,50 @@ type Server struct {
 	}
 }
 
+func (c Server) Validate() error {
+	if c.HTTP.ListenAddress == "" {
+		return errors.New("http listen address must not be empty")
+	}
+	if c.HTTP.GracePeriod < 0 {
+		return errors.New("http grace period must be greater than or equal to 0")
+	}
+
+	if c.MQTT.ListenAddress == "" {
+		return errors.New("mqtt listen address must not be empty")
+	}
+	if c.MQTT.GracePeriod < 0 {
+		return errors.New("mqtt grace period must be greater than or equal to 0")
+	}
+	if c.MQTT.ReadTimeout < 0 {
+		return errors.New("mqtt read timeout must be greater than or equal to 0")
+	}
+	if c.MQTT.WriteTimeout < 0 {
+		return errors.New("mqtt write timeout must be greater than or equal to 0")
+	}
+	if c.MQTT.IdleTimeout < 0 {
+		return errors.New("mqtt idle timeout must be greater than or equal to 0")
+	}
+	if c.MQTT.ReaderBufferSize < 0 {
+		return errors.New("mqtt read buffer size must be greater than or equal to 0")
+	}
+	if c.MQTT.WriterBufferSize < 0 {
+		return errors.New("mqtt write buffer size must be greater than or equal to 0")
+	}
+	if c.MQTT.Handler.Publish.Timeout < 0 {
+		return errors.New("handler publish timeout must be greater than or equal to 0")
+	}
+	if c.MQTT.Publisher.Name == "" {
+		return errors.New("publisher name must not be empty")
+	}
+	if c.MQTT.Publisher.Name == Kafka && c.MQTT.Publisher.Kafka.BootstrapServers == "" {
+		return errors.New("kafka bootstrap servers must not be empty")
+	}
+	if c.MQTT.Publisher.Kafka.GracePeriod < 0 {
+		return errors.New("kafka grace period must be greater than or equal to 0")
+	}
+	return nil
+}
+
 type KafkaConfigArgs struct {
 	conf kafka.ConfigMap
 }
