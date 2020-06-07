@@ -1,5 +1,3 @@
-package kafka
-
 /**
  * Copyright 2016 Confluent Inc.
  *
@@ -16,6 +14,8 @@ package kafka
  * limitations under the License.
  */
 
+package kafka
+
 import (
 	"fmt"
 	"reflect"
@@ -25,7 +25,7 @@ import (
 
 /*
 #include <stdlib.h>
-#include <librdkafka/rdkafka.h>
+#include "select_rdkafka.h"
 */
 import "C"
 

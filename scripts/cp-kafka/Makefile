@@ -4,29 +4,33 @@
 ROOT_DIR       := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 MQTT_PROXY     := $(ROOT_DIR)/../../mqtt-proxy
 
+.PHONY: help
+help:
+	@grep -E '^[a-zA-Z%_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
 build-up: build up
 
-build:
+build: ## docker-compose build
 	docker-compose build
 
-up:
+up: ## docker-compose up
 	docker-compose up
 
-up-d:
+up-d: ## docker-compose up in detached mode
 	docker-compose up -d
 
-down:
+down: ## docker-compose down
 	docker-compose down
 
-test-publish:
+test-publish:  ## test publish using mosquitto client
 	docker exec -it mqtt-client mosquitto_pub -L mqtt://mqtt-proxy:1883/dummy -m "test qos 0" --repeat 1 -q 0
 	docker exec -it mqtt-client mosquitto_pub -L mqtt://mqtt-proxy:1883/dummy -m "test qos 1" --repeat 1 -q 1
 	docker exec -it mqtt-client mosquitto_pub -L mqtt://mqtt-proxy:1883/dummy -m "test qos 2" --repeat 1 -q 2
 
-test-listen:
+test-listen: ## start kafka-console-consumer
 	docker exec -it broker kafka-console-consumer --bootstrap-server localhost:9092 --topic mqtt-test --property print.key=true --from-beginning
 
-server-security-plaintext:
+server-security-plaintext: ## start mqtt-proxy
 	@$(MQTT_PROXY) server \
        --mqtt.listen-address="0.0.0.0:2883" \
        --http.listen-address="0.0.0.0:10090" \
@@ -34,7 +38,7 @@ server-security-plaintext:
 	   --mqtt.publisher.kafka.bootstrap-servers=localhost:9092 \
 	   --mqtt.publisher.kafka.default-topic=mqtt-test
 
-server-security-sasl-plaintext:
+server-security-sasl-plaintext: ## start mqtt-proxy with kafka producer using SASL_PLAINTEXT
 	@$(MQTT_PROXY) server \
        --mqtt.listen-address="0.0.0.0:2883" \
        --http.listen-address="0.0.0.0:10090" \
@@ -43,7 +47,7 @@ server-security-sasl-plaintext:
 	   --mqtt.publisher.kafka.config=producer.sasl.mechanisms=PLAIN,producer.security.protocol=SASL_PLAINTEXT,producer.sasl.username=mqtt_proxy,producer.sasl.password=mqtt-proxy-secret \
 	   --mqtt.publisher.kafka.default-topic=mqtt-test
 
-server-security-ssl:
+server-security-ssl: ## start mqtt-proxy with kafka producer using SSL
 	@$(MQTT_PROXY) server \
        --mqtt.listen-address="0.0.0.0:2883" \
        --http.listen-address="0.0.0.0:10090" \
@@ -52,7 +56,7 @@ server-security-ssl:
 	   --mqtt.publisher.kafka.config=producer.security.protocol=SSL,producer.ssl.ca.location=$(ROOT_DIR)/security/certs/ca-cert.pem \
 	   --mqtt.publisher.kafka.default-topic=mqtt-test
 
-server-security-sasl-ssl:
+server-security-sasl-ssl: ## start mqtt-proxy with kafka producer using SASL_SSL
 	@$(MQTT_PROXY) server \
        --mqtt.listen-address="0.0.0.0:2883" \
        --http.listen-address="0.0.0.0:10090" \
@@ -61,7 +65,7 @@ server-security-sasl-ssl:
 	   --mqtt.publisher.kafka.config=producer.sasl.mechanisms=PLAIN,producer.security.protocol=SASL_SSL,producer.ssl.ca.location=$(ROOT_DIR)/security/certs/ca-cert.pem,producer.sasl.username=mqtt_proxy,producer.sasl.password=mqtt-proxy-secret \
 	   --mqtt.publisher.kafka.default-topic=mqtt-test
 
-server-tls-security-plaintext:
+server-tls-security-plaintext: ## start mqtt-proxy with TLS listener
 	@$(MQTT_PROXY) server \
        --mqtt.listen-address="0.0.0.0:3883" \
        --http.listen-address="0.0.0.0:20090" \

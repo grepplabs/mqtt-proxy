@@ -20,8 +20,9 @@
 //
 // High-level Consumer
 //
-// * Decide if you want to read messages and events from the `.Events()` channel
-// (set `"go.events.channel.enable": true`) or by calling `.Poll()`.
+// * Decide if you want to read messages and events by calling `.Poll()` or
+// the deprecated option of using the `.Events()` channel. (If you want to use
+// `.Events()` channel then set `"go.events.channel.enable": true`).
 //
 // * Create a Consumer with `kafka.NewConsumer()` providing at
 // least the `bootstrap.servers` and `group.id` configuration properties.
@@ -252,15 +253,15 @@ package kafka
 
 import (
 	"fmt"
-	// Make sure librdkafka/ sub-directory is included in vendor pulls.
-	_ "github.com/confluentinc/confluent-kafka-go/kafka/librdkafka"
+	// Make sure librdkafka_vendor/ sub-directory is included in vendor pulls.
+	_ "github.com/confluentinc/confluent-kafka-go/kafka/librdkafka_vendor"
 	"unsafe"
 )
 
 /*
 #include <stdlib.h>
 #include <string.h>
-#include <librdkafka/rdkafka.h>
+#include "select_rdkafka.h"
 
 static rd_kafka_topic_partition_t *_c_rdkafka_topic_partition_list_entry(rd_kafka_topic_partition_list_t *rktparlist, int idx) {
    return idx < rktparlist->cnt ? &rktparlist->elems[idx] : NULL;

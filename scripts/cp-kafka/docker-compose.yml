@@ -50,6 +50,7 @@ services:
       KAFKA_SSL_TRUSTSTORE_CREDENTIALS: certs/docker.kafka.server.truststore.passwd
       # none, requested, required
       KAFKA_SSL_CLIENT_AUTH: requested
+      KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE: "false"
   mqtt-proxy:
     hostname: mqtt-proxy
     container_name: mqtt-proxy

@@ -2,6 +2,7 @@
 
 **Work in progress**
 
+[![License: CC BY-NC-ND 4.0](https://img.shields.io/badge/License-CC%20BY--NC--ND%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-nd/4.0/)
 ![Build](https://github.com/grepplabs/mqtt-proxy/workflows/build/badge.svg)
 [![Docker Hub](https://img.shields.io/badge/docker-latest-blue.svg)](https://hub.docker.com/r/grepplabs/mqtt-proxy)
 [![Docker Pulls](https://img.shields.io/docker/pulls/grepplabs/mqtt-proxy)](https://hub.docker.com/r/grepplabs/mqtt-proxy)
@@ -17,13 +18,28 @@ MQTT Proxy allows MQTT clients to send messages to other messaging systems
 * Publisher
     * [x] Noop
     * [x] [Apache Kafka](https://kafka.apache.org/)
-    * [ ] [Apache Pulsar](https://pulsar.apache.org/)
     * [ ] Others
 * Authentication
     * [x] Noop
     * [x] Plain
     * [ ] Others
 * [x] Helm chart
+* [ ] Server certificate rotation
+ 
+### Install binary release
+
+1. Download the latest Linux release
+
+    ```
+    TAG=$(curl --silent "https://api.github.com/repos/grepplabs/mqtt-proxy/releases/latest" | jq -r '.tag_name')
+    curl -Ls https://github.com/grepplabs/mqtt-proxy/releases/download/${TAG}/mqtt-proxy-${TAG}-linux-amd64.tar.gz | tar xz
+    ```
+
+2. Move the binary in to your PATH.
+
+    ```
+    sudo mv ./mqtt-proxy /usr/local/bin/mqtt-proxy
+    ```
 
 ## Build
 ### build binary

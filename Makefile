@@ -2,7 +2,7 @@
 
 .PHONY: clean build fmt test
 
-TAG           ?= "v0.0.1"
+TAG           ?= v0.0.2
 
 BUILD_FLAGS   ?=
 BINARY        ?= mqtt-proxy
@@ -26,8 +26,10 @@ HELM_BIN	  ?= helm3
 HELM_VALUES	  ?= noop
 SVC_NAME      ?= mqtt-proxy
 SVC_NAMESPACE ?= mqtt
+CHART_VERSION = $(shell $(HELM_BIN) show chart charts/mqtt-proxy | egrep '^version' | sed 's/version://' | tr -d '[:space:]')
+CHART_PKG     ?= .cr-release-packages
 
-ROOT_DIR      := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+ROOT_DIR      := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
 default: build
 
@@ -61,6 +63,7 @@ fmt:
 
 clean:
 	@rm -rf $(BINARY)
+	@rm -rf $(CHART_PKG)
 
 .PHONY: deps
 deps:
@@ -83,15 +86,22 @@ release-setup:
 	curl -sfL https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sh
 
 .PHONY: release-publish
-release-publish: release-setup
+release-publish: helm-package release-setup
 	@[ "${GITHUB_TOKEN}" ] && echo "releasing $(TAG)" || ( echo "GITHUB_TOKEN is not set"; exit 1 )
 	git push origin $(TAG)
-	REVISION=$(REVISION) BRANCH=$(BRANCH) BUILD_DATE=$(BUILD_DATE) $(ROOT_DIR)/bin/goreleaser release --rm-dist
+	REVISION=$(REVISION) BRANCH=$(BRANCH) BUILD_DATE=$(BUILD_DATE) CHART_VERSION=$(CHART_VERSION) $(ROOT_DIR)/bin/goreleaser release --rm-dist
 
 .PHONY: release-snapshot
-release-snapshot:
-	REVISION=$(REVISION) BRANCH=$(BRANCH) BUILD_DATE=$(BUILD_DATE) $(ROOT_DIR)/bin/goreleaser --debug --rm-dist --snapshot --skip-publish
+release-snapshot: helm-package
+	REVISION=$(REVISION) BRANCH=$(BRANCH) BUILD_DATE=$(BUILD_DATE) CHART_VERSION=$(CHART_VERSION) $(ROOT_DIR)/bin/goreleaser --debug --rm-dist --snapshot --skip-publish
 
+
+.PHONY: helm-package
+helm-package:
+	$(HELM_BIN) package $(ROOT_DIR)/charts/mqtt-proxy --app-version $(TAG) --version $(CHART_VERSION) --destination $(ROOT_DIR)/$(CHART_PKG)
+	mv $(ROOT_DIR)/$(CHART_PKG)/mqtt-proxy-$(CHART_VERSION).tgz $(ROOT_DIR)/$(CHART_PKG)/mqtt-proxy-$(CHART_VERSION)-chart.tgz
+	$(HELM_BIN) repo index $(ROOT_DIR)/$(CHART_PKG) --url https://grepplabs.github.io/mqtt-proxy
+	# TODO: --merge  old_charts_dir/index.yaml
 
 .PHONY: helm-template
 helm-template:

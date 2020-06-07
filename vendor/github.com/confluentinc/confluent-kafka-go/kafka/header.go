@@ -1,5 +1,3 @@
-package kafka
-
 /**
  * Copyright 2018 Confluent Inc.
  *
@@ -16,6 +14,8 @@ package kafka
  * limitations under the License.
  */
 
+package kafka
+
 import (
 	"fmt"
 	"strconv"
@@ -23,7 +23,7 @@ import (
 
 /*
 #include <string.h>
-#include <librdkafka/rdkafka.h>
+#include "select_rdkafka.h"
 #include "glue_rdkafka.h"
 */
 import "C"

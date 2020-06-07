@@ -1,6 +1,15 @@
 apiVersion: v2
 name: mqtt-proxy
-description: A Helm chart for Kubernetes
+description: A Helm chart for mqtt-proxy
+home: https://github.com/grepplabs/mqtt-proxy
+keywords:
+  - mqtt-proxy
+  - kafka
+sources:
+  - https://github.com/grepplabs/mqtt-proxy
+maintainers:
+- name: everesio
+  email: michalbudzyn@gmail.com
 
 # A chart can be either an 'application' or a 'library' chart.
 #

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-PASSWORD="mqtt-proxy"
 CN_HOST="localhost"
 SERVER_KEYSTORE_JKS="docker.kafka.server.keystore.jks"
 SERVER_KEYSTORE_P12="docker.kafka.server.keystore.p12"
@@ -22,7 +21,7 @@ rm -rf ${BASEDIR}/certs/*
 
 (
 echo "Generating new Kafka SSL certs in \"${BASEDIR}/certs\" folder..."
-cd ${BASEDIR}/certs
+cd ${BASEDIR}/certs || exit
 
 # https://docs.confluent.io/2.0.0/kafka/ssl.html
 

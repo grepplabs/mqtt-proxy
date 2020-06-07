@@ -3,6 +3,7 @@
 /bin
 /dist
 /target
+/.cr-release-packages
 
 /*.tar
 /*.tgz
