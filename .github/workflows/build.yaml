@@ -5,6 +5,7 @@ on:
     branches:
       - master
     tags:
+      - '*'
   pull_request:
     branches:
       - master
@@ -32,3 +33,16 @@ jobs:
           tag_with_ref: true
           always_pull: true
           add_git_labels: true
+      - name: Set goreleaser env varbiales
+        run: |
+          echo "::set-env name=REVISION::$(git describe --tags --always --dirty)"
+          echo "::set-env name=BRANCH::$(git rev-parse --abbrev-ref HEAD)"
+          echo "::set-env name=BUILD_DATE::$(date +'%Y.%m.%d-%H:%M:%S')"
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          version: latest
+          args: release --rm-dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

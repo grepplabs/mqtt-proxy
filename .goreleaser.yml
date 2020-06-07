@@ -27,5 +27,5 @@ release:
   github:
     owner: grepplabs
     name: mqtt-proxy
-  draft: true
+  draft: false
   prerelease: auto
