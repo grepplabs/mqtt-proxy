@@ -54,7 +54,7 @@ type Publisher struct {
 	opts options
 }
 
-func New(logger log.Logger, registry *prometheus.Registry, opts ...Option) (*Publisher, error) {
+func New(logger log.Logger, _ *prometheus.Registry, opts ...Option) (*Publisher, error) {
 	logger = logger.WithField("publisher", publisherName)
 
 	options := options{workers: 1}

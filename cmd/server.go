@@ -2,13 +2,16 @@ package cmd
 
 import (
 	"github.com/grepplabs/mqtt-proxy/apis"
+	authinst "github.com/grepplabs/mqtt-proxy/pkg/auth/instrument"
+	authnoop "github.com/grepplabs/mqtt-proxy/pkg/auth/noop"
+	authplain "github.com/grepplabs/mqtt-proxy/pkg/auth/plain"
 	"github.com/grepplabs/mqtt-proxy/pkg/config"
 	"github.com/grepplabs/mqtt-proxy/pkg/log"
 	mqtthandler "github.com/grepplabs/mqtt-proxy/pkg/mqtt/handler"
 	"github.com/grepplabs/mqtt-proxy/pkg/prober"
-	"github.com/grepplabs/mqtt-proxy/pkg/publisher/instrument"
-	"github.com/grepplabs/mqtt-proxy/pkg/publisher/kafka"
-	"github.com/grepplabs/mqtt-proxy/pkg/publisher/noop"
+	pubinst "github.com/grepplabs/mqtt-proxy/pkg/publisher/instrument"
+	pubkafka "github.com/grepplabs/mqtt-proxy/pkg/publisher/kafka"
+	pubnoop "github.com/grepplabs/mqtt-proxy/pkg/publisher/noop"
 	httpserver "github.com/grepplabs/mqtt-proxy/pkg/server/http"
 	mqttserver "github.com/grepplabs/mqtt-proxy/pkg/server/mqtt"
 	"github.com/grepplabs/mqtt-proxy/pkg/tls"
@@ -25,6 +28,7 @@ func registerServer(m map[string]setupFunc, app *kingpin.Application) {
 	cmd := app.Command(command, "mqtt-proxy server")
 
 	cfg := new(config.Server)
+	cfg.Init()
 
 	cmd.Flag("http.listen-address", "Listen host:port for HTTP endpoints.").Default("0.0.0.0:9090").StringVar(&cfg.HTTP.ListenAddress)
 	cmd.Flag("http.grace-period", "Time to wait after an interrupt received for HTTP Server.").Default("10s").DurationVar(&cfg.HTTP.GracePeriod)
@@ -49,12 +53,17 @@ func registerServer(m map[string]setupFunc, app *kingpin.Application) {
 	cmd.Flag("mqtt.handler.publish.async.at-least-once", "Async publish for AT_LEAST_ONCE QoS.").Default("false").BoolVar(&cfg.MQTT.Handler.Publish.Async.AtLeastOnce)
 	cmd.Flag("mqtt.handler.publish.async.exactly-once", "Async publish for EXACTLY_ONCE QoS.").Default("false").BoolVar(&cfg.MQTT.Handler.Publish.Async.ExactlyOnce)
 
-	cmd.Flag("mqtt.publisher.name", "Publisher name. One of: [noop, kafka]").Default(config.Noop).EnumVar(&cfg.MQTT.Publisher.Name, config.Noop, config.Kafka)
+	cmd.Flag("mqtt.handler.auth.name", "Authenticator name. One of: [noop, plain]").Default(config.AuthNoop).EnumVar(&cfg.MQTT.Handler.Authenticator.Name, config.AuthNoop, config.AuthPlain)
+	cmd.Flag("mqtt.handler.auth.plain.credentials", "List of username and password fields.").Default("USERNAME=PASSWORD").StringMapVar(&cfg.MQTT.Handler.Authenticator.Plain.Credentials)
+	cmd.Flag("mqtt.handler.auth.plain.credentials-file", "Location of a headerless CSV file containing `usernanme,password` records").Default("").StringVar(&cfg.MQTT.Handler.Authenticator.Plain.CredentialsFile)
+
+	cmd.Flag("mqtt.publisher.name", "Publisher name. One of: [noop, kafka]").Default(config.PublisherNoop).EnumVar(&cfg.MQTT.Publisher.Name, config.PublisherNoop, config.PublisherKafka)
 	cmd.Flag("mqtt.publisher.kafka.config", "Comma separated list of properties").PlaceHolder("PROP=VAL").SetValue(&cfg.MQTT.Publisher.Kafka.ConfArgs)
 	cmd.Flag("mqtt.publisher.kafka.bootstrap-servers", "Kafka bootstrap servers").Default("localhost:9092").StringVar(&cfg.MQTT.Publisher.Kafka.BootstrapServers)
 	cmd.Flag("mqtt.publisher.kafka.grace-period", "Time to wait after an interrupt received for Kafka publisher.").Default("10s").DurationVar(&cfg.MQTT.Publisher.Kafka.GracePeriod)
 	cmd.Flag("mqtt.publisher.kafka.default-topic", "Default Kafka topic for MQTT publish messages").Default("").StringVar(&cfg.MQTT.Publisher.Kafka.DefaultTopic)
 	cmd.Flag("mqtt.publisher.kafka.topic-mappings", "Comma separated list of Kafka topic to MQTT topic mappings").PlaceHolder("TOPIC=REGEX").SetValue(&cfg.MQTT.Publisher.Kafka.TopicMappings)
+	cmd.Flag("mqtt.publisher.kafka.workers", "Number of kafka publisher workers").Default("1").IntVar(&cfg.MQTT.Publisher.Kafka.Workers)
 
 	m[command] = func(group *run.Group, logger log.Logger, registry *prometheus.Registry) error {
 		return runServer(group, logger, registry, cfg)
@@ -91,33 +100,58 @@ func runServer(
 			srv.Shutdown(err)
 		})
 	}
+
+	var authenticator apis.UserPasswordAuthenticator
+	{
+		logger.Infof("setting up authenticator %s", cfg.MQTT.Handler.Authenticator.Name)
+
+		switch cfg.MQTT.Handler.Authenticator.Name {
+		case config.AuthNoop:
+			authenticator = authnoop.New(logger, registry)
+		case config.AuthPlain:
+			authenticator, err = authplain.New(logger, registry,
+				authplain.WithCredentials(cfg.MQTT.Handler.Authenticator.Plain.Credentials),
+				authplain.WithCredentialsFile(cfg.MQTT.Handler.Authenticator.Plain.CredentialsFile),
+			)
+			if err != nil {
+				return errors.Wrap(err, "setup plain authenticator")
+			}
+		default:
+			return errors.Errorf("unknown authenticator %s", cfg.MQTT.Handler.Authenticator.Name)
+		}
+		authenticator = authinst.New(authenticator, registry)
+		defer func() {
+			err := authenticator.Close()
+			if err != nil {
+				logger.WithError(err).Warnf("authenticator close failed")
+			}
+		}()
+	}
 	var publisher apis.Publisher
 	{
-		logger.Infof("setting publisher")
+		logger.Infof("setting up publisher %s", cfg.MQTT.Publisher.Name)
 
 		var err error
 
 		switch cfg.MQTT.Publisher.Name {
-		case config.Noop:
-			publisher, err = noop.New(logger, registry)
-			if err != nil {
-				return errors.Wrap(err, "setup noop publisher")
-			}
-		case config.Kafka:
-			publisher, err = kafka.New(logger, registry,
-				kafka.WithBootstrapServers(cfg.MQTT.Publisher.Kafka.BootstrapServers),
-				kafka.WithDefaultTopic(cfg.MQTT.Publisher.Kafka.DefaultTopic),
-				kafka.WithTopicMappings(cfg.MQTT.Publisher.Kafka.TopicMappings),
-				kafka.WithConfigMap(cfg.MQTT.Publisher.Kafka.ConfArgs.ConfigMap()),
-				kafka.WithGracePeriod(cfg.MQTT.Publisher.Kafka.GracePeriod),
+		case config.PublisherNoop:
+			publisher = pubnoop.New(logger, registry)
+		case config.PublisherKafka:
+			publisher, err = pubkafka.New(logger, registry,
+				pubkafka.WithBootstrapServers(cfg.MQTT.Publisher.Kafka.BootstrapServers),
+				pubkafka.WithDefaultTopic(cfg.MQTT.Publisher.Kafka.DefaultTopic),
+				pubkafka.WithTopicMappings(cfg.MQTT.Publisher.Kafka.TopicMappings),
+				pubkafka.WithConfigMap(cfg.MQTT.Publisher.Kafka.ConfArgs.ConfigMap()),
+				pubkafka.WithGracePeriod(cfg.MQTT.Publisher.Kafka.GracePeriod),
+				pubkafka.WithWorkers(cfg.MQTT.Publisher.Kafka.Workers),
 			)
 			if err != nil {
 				return errors.Wrap(err, "setup kafka publisher")
 			}
 		default:
-			return errors.Errorf("Unknown publisher %s", cfg.MQTT.Publisher.Name)
+			return errors.Errorf("unknown publisher %s", cfg.MQTT.Publisher.Name)
 		}
-		publisher = instrument.New(publisher, registry)
+		publisher = pubinst.New(publisher, registry)
 
 		group.Add(func() error {
 			return publisher.Serve()
@@ -140,6 +174,7 @@ func runServer(
 			mqtthandler.WithPublishAsyncAtMostOnce(cfg.MQTT.Handler.Publish.Async.AtMostOnce),
 			mqtthandler.WithPublishAsyncAtLeastOnce(cfg.MQTT.Handler.Publish.Async.AtLeastOnce),
 			mqtthandler.WithPublishAsyncExactlyOnce(cfg.MQTT.Handler.Publish.Async.ExactlyOnce),
+			mqtthandler.WithAuthenticator(authenticator),
 		)
 
 		srv := mqttserver.New(logger, registry, httpProbe,

@@ -11,8 +11,6 @@ import (
 )
 
 const (
-	syncType      = "sync"
-	asyncType     = "async"
 	publisherName = "noop"
 )
 
@@ -22,11 +20,11 @@ type Publisher struct {
 	logger  log.Logger
 }
 
-func New(logger log.Logger, registry *prometheus.Registry) (*Publisher, error) {
+func New(logger log.Logger, _ *prometheus.Registry) *Publisher {
 	return &Publisher{
 		done:   runtime.NewDoneChannel(),
 		logger: logger.WithField("publisher", publisherName),
-	}, nil
+	}
 }
 
 func (s Publisher) Name() string {

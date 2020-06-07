@@ -106,7 +106,7 @@ func TestConfigValidation(t *testing.T) {
 				s := new(Server)
 				s.HTTP.ListenAddress = "localhost:9090"
 				s.MQTT.ListenAddress = "localhost:1883"
-				s.MQTT.Publisher.Name = Noop
+				s.MQTT.Publisher.Name = PublisherNoop
 				return s
 			},
 		},
@@ -116,8 +116,9 @@ func TestConfigValidation(t *testing.T) {
 				s := new(Server)
 				s.HTTP.ListenAddress = "localhost:9090"
 				s.MQTT.ListenAddress = "localhost:1883"
-				s.MQTT.Publisher.Name = Kafka
+				s.MQTT.Publisher.Name = PublisherKafka
 				s.MQTT.Publisher.Kafka.BootstrapServers = "localhost:9092"
+				s.MQTT.Publisher.Kafka.Workers = 1
 				return s
 			},
 		},
@@ -134,9 +135,10 @@ func TestConfigValidation(t *testing.T) {
 				s.MQTT.IdleTimeout = 1 * time.Second
 				s.MQTT.ReaderBufferSize = 256
 				s.MQTT.WriterBufferSize = 256
-				s.MQTT.Publisher.Name = Kafka
+				s.MQTT.Publisher.Name = PublisherKafka
 				s.MQTT.Publisher.Kafka.BootstrapServers = "localhost:9092"
 				s.MQTT.Publisher.Kafka.GracePeriod = 10 * time.Second
+				s.MQTT.Publisher.Kafka.Workers = 10
 				return s
 			},
 		},

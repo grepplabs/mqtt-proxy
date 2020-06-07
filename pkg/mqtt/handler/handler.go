@@ -56,20 +56,46 @@ func (h *MQTTHandler) handleConnect(conn mqttserver.Conn, packet mqttcodec.Contr
 
 	h.logger.Infof("Handling MQTT message '%s' from /%v", req.Name(), conn.RemoteAddr())
 
-	//TODO: login with user password
-
+	returnCode, err := h.loginUser(req)
+	if err != nil {
+		h.logger.WithError(err).Warnf("Login failed from /%v failed", conn.RemoteAddr())
+		_ = conn.Close()
+		return
+	}
 	if req.KeepAliveSeconds > 0 {
 		conn.Properties().SetIdleTimeout(time.Duration(float64(req.KeepAliveSeconds)*1.5) * time.Second)
 	}
-	conn.Properties().SetAuthenticated(true)
+	authenticated := returnCode == mqttcodec.Accepted
+	conn.Properties().SetAuthenticated(authenticated)
 
-	res := mqttcodec.NewControlPacket(mqttcodec.CONNACK)
-	err := res.Write(conn)
+	res := mqttcodec.NewControlPacket(mqttcodec.CONNACK).(*mqttcodec.ConnackPacket)
+	res.ReturnCode = returnCode
+
+	err = res.Write(conn)
 	if err != nil {
 		h.logger.WithError(err).Errorf("Write 'CONNACK' failed")
 	} else {
 		h.metrics.responsesTotal.WithLabelValues(res.Name()).Inc()
 	}
+	if !authenticated {
+		h.logger.Infof("Disconnect unauthenticated user '%s' from /%v", req.Username, conn.RemoteAddr())
+		_ = conn.Close()
+		return
+	}
+}
+
+func (h *MQTTHandler) loginUser(packet *mqttcodec.ConnectPacket) (byte, error) {
+	if h.opts.authenticator != nil {
+		authResp, err := h.opts.authenticator.Login(context.Background(), &apis.UserPasswordAuthRequest{
+			Username: packet.Username,
+			Password: string(packet.Password),
+		})
+		if err != nil {
+			return 0, err
+		}
+		return authResp.ReturnCode, nil
+	}
+	return mqttcodec.Accepted, nil
 }
 
 func (h *MQTTHandler) handlePublish(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {

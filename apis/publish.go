@@ -32,5 +32,5 @@ type Publisher interface {
 }
 
 type PublisherFactory interface {
-	New(context.Context) (Publisher, error)
+	New(params []string) (Publisher, error)
 }

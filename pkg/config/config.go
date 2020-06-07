@@ -12,8 +12,14 @@ import (
 
 // publisher names
 const (
-	Noop  = "noop"
-	Kafka = "kafka"
+	PublisherNoop  = "noop"
+	PublisherKafka = "kafka"
+)
+
+// authenticator names
+const (
+	AuthNoop  = "noop"
+	AuthPlain = "plain"
 )
 
 type Server struct {
@@ -45,20 +51,30 @@ type Server struct {
 					ExactlyOnce bool
 				}
 			}
+			Authenticator struct {
+				Name  string
+				Plain struct {
+					Credentials     map[string]string
+					CredentialsFile string
+				}
+			}
 		}
 		Publisher struct {
-			Name string
-			Noop struct {
-			}
+			Name  string
 			Kafka struct {
 				BootstrapServers string
 				GracePeriod      time.Duration
 				ConfArgs         KafkaConfigArgs
 				DefaultTopic     string
 				TopicMappings    TopicMappings
+				Workers          int
 			}
 		}
 	}
+}
+
+func (c *Server) Init() {
+	c.MQTT.Handler.Authenticator.Plain.Credentials = make(map[string]string)
 }
 
 func (c Server) Validate() error {
@@ -96,11 +112,16 @@ func (c Server) Validate() error {
 	if c.MQTT.Publisher.Name == "" {
 		return errors.New("publisher name must not be empty")
 	}
-	if c.MQTT.Publisher.Name == Kafka && c.MQTT.Publisher.Kafka.BootstrapServers == "" {
-		return errors.New("kafka bootstrap servers must not be empty")
-	}
-	if c.MQTT.Publisher.Kafka.GracePeriod < 0 {
-		return errors.New("kafka grace period must be greater than or equal to 0")
+	if c.MQTT.Publisher.Name == PublisherKafka {
+		if c.MQTT.Publisher.Kafka.BootstrapServers == "" {
+			return errors.New("kafka bootstrap servers must not be empty")
+		}
+		if c.MQTT.Publisher.Kafka.GracePeriod < 0 {
+			return errors.New("kafka grace period must be greater than or equal to 0")
+		}
+		if c.MQTT.Publisher.Kafka.Workers < 1 {
+			return errors.New("kafka grace period must be greater than 0")
+		}
 	}
 	return nil
 }

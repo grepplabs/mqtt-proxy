@@ -15,10 +15,14 @@ MQTT Proxy allows MQTT clients to send messages to other messaging systems
     * [x] [MQTT 3.1.1](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/mqtt-v3.1.1.html)
     * [ ] [MQTT 5.0](https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.html)
 * Publisher
+    * [x] Noop
     * [x] [Apache Kafka](https://kafka.apache.org/)
     * [ ] [Apache Pulsar](https://pulsar.apache.org/)
     * [ ] Others
-* [ ] Authentication
+* Authentication
+    * [x] Noop
+    * [x] Plain
+    * [ ] Others
 * [x] Helm chart
 
 ## Build
@@ -111,6 +115,38 @@ prerequisites
     mosquitto_pub -m "on" -t "dummy" -k 20 -i mqtt-proxy.clientv --repeat 1 -q 1 -h <ec2-ip> -p 1884
     ```
 
+### plain authenticator
+
+1. start server with `plain` authenticator
+    * with credentials file
+
+    ```
+    cat <<EOF > mqtt-credentials.csv
+    alice,alice-secret
+    "bob","bob-secret"
+    EOF
+    ```
+
+    ```
+    mqtt-proxy server --mqtt.publisher.name=noop \
+        --mqtt.handler.auth.name=plain \
+        --mqtt.handler.auth.plain.credentials-file=mqtt-credentials.csv
+    ```
+    * providing credentials as parameters
+    ```
+    mqtt-proxy server --mqtt.publisher.name=noop \
+        --mqtt.handler.auth.name=plain \
+        --mqtt.handler.auth.plain.credentials=alice=alice-secret \
+        --mqtt.handler.auth.plain.credentials=bob=bob-secret
+    ```
+2. publish
+
+    ```
+    mosquitto_pub -m "on" -t "dummy" -u alice -P alice-secret
+    mosquitto_pub -L mqtt://bob:bob-secret@localhost:1883/dummy -m "on"
+    ```
+
+
 ## Configuration
 
 ### Kafka publisher
@@ -120,7 +156,6 @@ Kafka producer configuration properties used by [librdkafka](https://github.com/
 ```
 --mqtt.publisher.kafka.config=producer.sasl.mechanisms=PLAIN,producer.security.protocol=SASL_SSL,producer.sasl.username=myuser,producer.sasl.password=mypasswd
 ```
-
 
 ### Examples
 
@@ -142,3 +177,4 @@ metric | labels | description
 |mqtt_proxy_handler_requests_total|type|Total number of MQTT requests labeled by package control type. |
 |mqtt_proxy_handler_responses_total|type|Total number of MQTT responses labeled by package control type. |
 |mqtt_proxy_publisher_publish_duration_seconds | name, type, qos | Histogram tracking latencies for publish requests. |
+|mqtt_proxy_authenticator_login_duration_seconds | name, code, err | Histogram tracking latencies for login requests. |

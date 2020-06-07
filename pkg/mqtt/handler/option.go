@@ -1,6 +1,9 @@
 package mqtthandler
 
-import "time"
+import (
+	"github.com/grepplabs/mqtt-proxy/apis"
+	"time"
+)
 
 type options struct {
 	ignoreUnsupported       []string
@@ -9,6 +12,7 @@ type options struct {
 	publishAsyncAtMostOnce  bool
 	publishAsyncAtLeastOnce bool
 	publishAsyncExactlyOnce bool
+	authenticator           apis.UserPasswordAuthenticator
 }
 
 type Option interface {
@@ -54,5 +58,11 @@ func WithPublishAsyncAtLeastOnce(b bool) Option {
 func WithPublishAsyncExactlyOnce(b bool) Option {
 	return optionFunc(func(o *options) {
 		o.publishAsyncExactlyOnce = b
+	})
+}
+
+func WithAuthenticator(a apis.UserPasswordAuthenticator) Option {
+	return optionFunc(func(o *options) {
+		o.authenticator = a
 	})
 }
