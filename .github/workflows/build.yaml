@@ -33,6 +33,8 @@ jobs:
           tag_with_ref: true
           always_pull: true
           add_git_labels: true
+      - name: Helm package
+        run: make HELM_BIN=helm helm-package
       - name: Set goreleaser env varbiales
         run: |
           echo "::set-env name=REVISION::$(git describe --tags --always --dirty)"

@@ -29,3 +29,5 @@ release:
     name: mqtt-proxy
   draft: false
   prerelease: auto
+  extra_files:
+    - glob: .cr-release-packages/mqtt-proxy-*-chart.tgz
