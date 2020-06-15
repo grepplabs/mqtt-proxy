@@ -18,6 +18,7 @@ MQTT Proxy allows MQTT clients to send messages to other messaging systems
     * [x] Noop
     * [x] [Apache Kafka](https://kafka.apache.org/)
     * [ ] [Apache Pulsar](https://pulsar.apache.org/)
+    * [ ] [NATS](https://docs.nats.io/)
     * [ ] Others
 * Authentication
     * [x] Noop
