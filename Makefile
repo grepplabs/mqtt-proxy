@@ -29,7 +29,7 @@ SVC_NAMESPACE ?= mqtt
 CHART_VERSION = $(shell $(HELM_BIN) show chart charts/mqtt-proxy | egrep '^version' | sed 's/version://' | tr -d '[:space:]')
 CHART_PKG     ?= .cr-release-packages
 
-ROOT_DIR      := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+ROOT_DIR      := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
 default: build
 
