@@ -1,6 +1,7 @@
 package log
 
 import (
+	"context"
 	"os"
 
 	"github.com/sykesm/zap-logfmt"
@@ -14,7 +15,7 @@ type zapLogger struct {
 	errorKey      string
 }
 
-func getEncoder(config Configuration) zapcore.Encoder {
+func getEncoder(config LogConfig) zapcore.Encoder {
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	encoderConfig.TimeKey = getStringOrDefault(config.LogFieldNames.Time, TimeKey)
@@ -59,7 +60,7 @@ func getZapLevel(level string) zapcore.Level {
 	}
 }
 
-func newZapLogger(config Configuration) Logger {
+func newZapLogger(config LogConfig) Logger {
 	cores := []zapcore.Core{}
 
 	level := getZapLevel(config.LogLevel)
@@ -83,6 +84,10 @@ func newZapLogger(config Configuration) Logger {
 	}
 }
 
+func (l *zapLogger) Debug(message string) {
+	l.sugaredLogger.Debug(message)
+}
+
 func (l *zapLogger) Debugf(format string, args ...interface{}) {
 	l.sugaredLogger.Debugf(format, args...)
 }
@@ -95,12 +100,24 @@ func (l *zapLogger) Printf(format string, args ...interface{}) {
 	l.sugaredLogger.Infof(format, args...)
 }
 
+func (l *zapLogger) Print(message string) {
+	l.sugaredLogger.Info(message)
+}
+
+func (l *zapLogger) Info(message string) {
+	l.sugaredLogger.Info(message)
+}
+
 func (l *zapLogger) Infof(format string, args ...interface{}) {
 	l.sugaredLogger.Infof(format, args...)
 }
 
 func (l *zapLogger) IsInfo() bool {
 	return l.level <= zapcore.InfoLevel
+}
+
+func (l *zapLogger) Warn(message string) {
+	l.sugaredLogger.Warn(message)
 }
 
 func (l *zapLogger) Warnf(format string, args ...interface{}) {
@@ -111,6 +128,10 @@ func (l *zapLogger) IsWarn() bool {
 	return l.level <= zapcore.WarnLevel
 }
 
+func (l *zapLogger) Error(message string) {
+	l.sugaredLogger.Errorf(message)
+}
+
 func (l *zapLogger) Errorf(format string, args ...interface{}) {
 	l.sugaredLogger.Errorf(format, args...)
 }
@@ -119,12 +140,20 @@ func (l *zapLogger) IsError() bool {
 	return l.level <= zapcore.ErrorLevel
 }
 
+func (l *zapLogger) Fatal(message string) {
+	l.sugaredLogger.Fatal(message)
+}
+
 func (l *zapLogger) Fatalf(format string, args ...interface{}) {
 	l.sugaredLogger.Fatalf(format, args...)
 }
 
 func (l *zapLogger) IsFatal() bool {
 	return l.level <= zapcore.FatalLevel
+}
+
+func (l *zapLogger) Panic(message string) {
+	l.sugaredLogger.Panic(message)
 }
 
 func (l *zapLogger) Panicf(format string, args ...interface{}) {
@@ -154,4 +183,16 @@ func (l *zapLogger) WithError(err error) Logger {
 		return l
 	}
 	return l.WithFields(Fields{l.errorKey: err.Error()})
+}
+
+func (l *zapLogger) WithContext(ctx context.Context) Logger {
+	fields := ctx.Value(ContextLogTag)
+	if fields == nil {
+		return l
+	}
+	maps := fields.(Fields)
+	if len(maps) > 0 {
+		return l.WithFields(maps)
+	}
+	return l
 }

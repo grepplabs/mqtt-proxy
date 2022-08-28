@@ -1,5 +1,10 @@
 package log
 
+import (
+	"context"
+	"sync"
+)
+
 //Fields Type to pass when we want to call WithFields for structured logging
 type Fields map[string]interface{}
 
@@ -40,19 +45,38 @@ const (
 	LogFormatLogfmt = "logfmt"
 )
 
+const (
+	// ContextLogTag is used to identifier fields, which should be appended to a log entry, from a passed context
+	ContextLogTag string = "logging"
+)
+
 //Logger is our contract for the logger
 type Logger interface {
+	Print(message string)
+
 	Printf(format string, args ...interface{})
+
+	Debug(message string)
 
 	Debugf(format string, args ...interface{})
 
+	Info(message string)
+
 	Infof(format string, args ...interface{})
+
+	Warn(message string)
 
 	Warnf(format string, args ...interface{})
 
+	Error(message string)
+
 	Errorf(format string, args ...interface{})
 
+	Panic(message string)
+
 	Panicf(format string, args ...interface{})
+
+	Fatal(message string)
 
 	Fatalf(format string, args ...interface{})
 
@@ -73,6 +97,8 @@ type Logger interface {
 	IsPanic() bool
 
 	IsFatal() bool
+
+	WithContext(context context.Context) Logger
 }
 
 type LogFieldNames struct {
@@ -83,23 +109,42 @@ type LogFieldNames struct {
 	Error   string
 }
 
-// Configuration stores the config for the logger
-type Configuration struct {
+// LogConfig stores the config for the logger
+type LogConfig struct {
 	LogFormat     string
 	LogLevel      string
 	LogFieldNames LogFieldNames
 }
 
 //NewLogger returns an instance of logger
-func NewLogger(config Configuration) Logger {
+func NewLogger(config LogConfig) Logger {
 	return newZapLogger(config)
 }
 
-var DefaultLogger = NewDefaultLogger()
+var (
+	instance Logger
+	once     sync.Once
+)
+
+//InitInstance initialize logger which will be returned by GetInstance
+func InitInstance(logger Logger) {
+	once.Do(func() {
+		instance = logger
+	})
+}
+
+func GetInstance() Logger {
+	once.Do(func() {
+		if instance == nil {
+			instance = NewDefaultLogger()
+		}
+	})
+	return instance
+}
 
 //NewDefaultLogger returns an instance of logger with default parameters
 func NewDefaultLogger() Logger {
-	config := Configuration{
+	config := LogConfig{
 		LogFormat: LogFormatLogfmt,
 		LogLevel:  Info,
 	}
@@ -107,5 +152,5 @@ func NewDefaultLogger() Logger {
 }
 
 func Printf(format string, args ...interface{}) {
-	DefaultLogger.Printf(format, args...)
+	GetInstance().Printf(format, args...)
 }

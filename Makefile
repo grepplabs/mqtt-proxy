@@ -33,15 +33,23 @@ ROOT_DIR      := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
 default: build
 
-check:
+.PHONY: help
+help:
+	@grep -E '^[a-zA-Z%_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+vet: ## Go vet
 	go vet ./...
-	golint $$(go list ./...) 2>&1
+
+check: vet
 	gosec ./... 2>&1
 
-test:
+lint: ## Lint
+	golint $$(go list ./...) 2>&1
+
+test: ## Test
 	GO111MODULE=on go test -mod=vendor -v ./...
 
-build:
+build: vet ## Build executable
 	CGO_ENABLED=1 GO111MODULE=on go build -mod=vendor -o $(BINARY) $(BUILD_FLAGS) -ldflags "$(LDFLAGS)" .
 
 .PHONY: os-build
@@ -58,10 +66,10 @@ docker-push:
 	docker tag $(LOCAL_IMAGE) $(CLOUD_IMAGE)
 	docker push $(CLOUD_IMAGE)
 
-fmt:
+fmt: ## Go format
 	go fmt ./...
 
-clean:
+clean: ## Clean
 	@rm -rf $(BINARY)
 	@rm -rf $(CHART_PKG)
 
@@ -70,15 +78,15 @@ deps:
 	GO111MODULE=on go get ./...
 
 .PHONY: vendor
-vendor:
+vendor: ## Go vendor
 	GO111MODULE=on go mod vendor
 
 .PHONY: tidy
-tidy:
+tidy: ## Go tidy
 	GO111MODULE=on go mod tidy
 
 .PHONY: tag
-tag:
+tag: ## Git tag
 	git tag $(TAG)
 
 .PHONY: release-setup
@@ -97,20 +105,20 @@ release-snapshot: helm-package
 
 
 .PHONY: helm-package
-helm-package:
+helm-package: ## Package helm chart
 	$(HELM_BIN) package $(ROOT_DIR)/charts/mqtt-proxy --app-version $(TAG) --version $(CHART_VERSION) --destination $(ROOT_DIR)/$(CHART_PKG)
 	mv $(ROOT_DIR)/$(CHART_PKG)/mqtt-proxy-$(CHART_VERSION).tgz $(ROOT_DIR)/$(CHART_PKG)/mqtt-proxy-$(CHART_VERSION)-chart.tgz
 	$(HELM_BIN) repo index $(ROOT_DIR)/$(CHART_PKG) --url https://grepplabs.github.io/mqtt-proxy
 	# TODO: --merge  old_charts_dir/index.yaml
 
 .PHONY: helm-template
-helm-template:
+helm-template: ## Template helm chart
 	$(HELM_BIN) template $(SVC_NAME) $(ROOT_DIR)/charts/mqtt-proxy \
 	   -f $(ROOT_DIR)/charts/mqtt-proxy/values-$(HELM_VALUES).yaml \
 	   --namespace=$(SVC_NAMESPACE)
 
 .PHONY: helm-install
-helm-install:
+helm-install:  ## Install helm chart
 	$(HELM_BIN) upgrade $(SVC_NAME) $(ROOT_DIR)/charts/mqtt-proxy \
 	   -f $(ROOT_DIR)/charts/mqtt-proxy/values-$(HELM_VALUES).yaml \
 	   --namespace=$(SVC_NAMESPACE) \
@@ -118,8 +126,11 @@ helm-install:
 	   --create-namespace
 
 .PHONY: helm-test
-helm-test:
+helm-test: ## Test helm chart
 	$(HELM_BIN) test $(SVC_NAME) \
 		--namespace=$(SVC_NAMESPACE)
 
 
+.PHONY: install-tools
+install-tools: ## Install tools
+	go install github.com/securego/gosec/v2/cmd/gosec@latest

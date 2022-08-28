@@ -89,7 +89,7 @@ func (srv *Server) Serve(l net.Listener) (err error) {
 func (srv *Server) newConn(rwc net.Conn) *conn {
 	logger := srv.ErrorLog
 	if logger == nil {
-		logger = log.DefaultLogger
+		logger = log.GetInstance()
 	}
 	c := &conn{
 		server: srv,
@@ -330,12 +330,12 @@ func (srv *Server) NumTotalConn() int64 {
 }
 
 func ListenAndServe(addr string, handler Handler) error {
-	server := &Server{Addr: addr, Handler: handler, ErrorLog: log.DefaultLogger}
+	server := &Server{Addr: addr, Handler: handler, ErrorLog: log.GetInstance()}
 	return server.ListenAndServe()
 }
 
 func ListenAndServeTLS(addr, certFile, keyFile string, handler Handler) error {
-	server := &Server{Addr: addr, Handler: handler, ErrorLog: log.DefaultLogger}
+	server := &Server{Addr: addr, Handler: handler, ErrorLog: log.GetInstance()}
 	return server.ListenAndServeTLS(certFile, keyFile)
 }
 

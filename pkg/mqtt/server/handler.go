@@ -47,7 +47,7 @@ func NewServeMux(logger log.Logger) *ServeMux {
 	}
 }
 
-var DefaultServeMux = NewServeMux(log.DefaultLogger)
+var DefaultServeMux = NewServeMux(log.GetInstance())
 
 func (mux *ServeMux) Handle(messageType byte, handler Handler) {
 	mux.mu.Lock()

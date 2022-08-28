@@ -11,6 +11,7 @@ import (
 	"github.com/oklog/run"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/common/version"
 	"go.uber.org/automaxprocs/maxprocs"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -24,7 +25,7 @@ func Execute() {
 	app.Version(version.Print("mqtt-proxy"))
 	app.HelpFlag.Short('h')
 
-	logConfig := log.Configuration{}
+	logConfig := log.LogConfig{}
 	app.Flag("log.level", "Log filtering One of: [fatal, error, warn, info, debug]").Default(log.Info).EnumVar(&logConfig.LogLevel, log.Fatal, log.Error, log.Warn, log.Info, log.Debug)
 	app.Flag("log.format", "Log format to use. One of: [logfmt, json, plain]").Default(log.LogFormatLogfmt).EnumVar(&logConfig.LogFormat, log.LogFormatLogfmt, log.LogFormatJson, log.LogFormatPlain)
 	app.Flag("log.field-name.time", "Log time field name").Default(log.TimeKey).StringVar(&logConfig.LogFieldNames.Time)
@@ -45,6 +46,7 @@ func Execute() {
 	}
 
 	logger := log.NewLogger(logConfig)
+	log.InitInstance(logger)
 
 	undo, err := maxprocs.Set(maxprocs.Logger(func(template string, args ...interface{}) {
 		logger.Debugf(template, args...)
@@ -59,10 +61,11 @@ func Execute() {
 	metrics := prometheus.NewRegistry()
 	metrics.MustRegister(
 		version.NewCollector("mqtt_proxy"),
-		prometheus.NewGoCollector(),
-		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
+		collectors.NewGoCollector(
+			collectors.WithGoCollectorRuntimeMetrics(),
+		),
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	)
-
 	var g run.Group
 
 	if err := cmds[cmd](&g, logger, metrics); err != nil {

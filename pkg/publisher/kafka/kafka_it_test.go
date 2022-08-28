@@ -14,7 +14,7 @@ import (
 )
 
 func newTestPublisherOrExit() *Publisher {
-	logger := log.NewLogger(log.Configuration{
+	logger := log.NewLogger(log.LogConfig{
 		LogLevel:  log.Debug,
 		LogFormat: log.LogFormatLogfmt,
 	})

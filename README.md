@@ -25,7 +25,12 @@ MQTT Proxy allows MQTT clients to send messages to other messaging systems
     * [ ] Others
 * [x] Helm chart
 * [ ] Server certificate rotation
- 
+    * [ ] Self sign / intermediate certificates
+    * [ ] Let's Encrypt certificates
+    * [ ] HashiCorp Vault certificates
+    * [ ] K8S cert-manager
+
+
 ### Install binary release
 
 1. Download the latest Linux release
