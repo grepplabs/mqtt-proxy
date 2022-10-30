@@ -63,7 +63,7 @@ func (s *Server) ListenAndServe() error {
 		return errors.Wrap(s.srv.ListenAndServe(), "serve MQTT")
 	} else {
 		s.logger.WithField("address", s.opts.listen).Infof("listening TLS for MQTT request")
-		return errors.Wrap(s.srv.ListenAndServeTLS("", ""), "serve TLS MQTT")
+		return errors.Wrap(s.srv.ListenAndServeTLS(s.opts.tlsConfig), "serve TLS MQTT")
 	}
 }
 

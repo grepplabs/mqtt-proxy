@@ -22,6 +22,11 @@ const (
 	AuthPlain = "plain"
 )
 
+// server certificate source
+const (
+	CertSourceFile = "file"
+)
+
 type Server struct {
 	HTTP struct {
 		ListenAddress string
@@ -36,9 +41,15 @@ type Server struct {
 		ReaderBufferSize int
 		WriterBufferSize int
 		TLSSrv           struct {
-			Cert     string
-			Key      string
-			ClientCA string
+			Enable     bool
+			CertSource string
+			Refresh    time.Duration
+			File       struct {
+				Cert      string
+				Key       string
+				ClientCA  string
+				ClientCLR string
+			}
 		}
 		Handler struct {
 			IgnoreUnsupported    []string

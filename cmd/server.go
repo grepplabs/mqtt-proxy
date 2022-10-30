@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"crypto/tls"
 	"github.com/grepplabs/mqtt-proxy/apis"
 	authinst "github.com/grepplabs/mqtt-proxy/pkg/auth/instrument"
 	authnoop "github.com/grepplabs/mqtt-proxy/pkg/auth/noop"
@@ -14,7 +15,9 @@ import (
 	pubnoop "github.com/grepplabs/mqtt-proxy/pkg/publisher/noop"
 	httpserver "github.com/grepplabs/mqtt-proxy/pkg/server/http"
 	mqttserver "github.com/grepplabs/mqtt-proxy/pkg/server/mqtt"
-	"github.com/grepplabs/mqtt-proxy/pkg/tls"
+	servertls "github.com/grepplabs/mqtt-proxy/pkg/tls"
+	"github.com/grepplabs/mqtt-proxy/pkg/tls/cert/filesource"
+	tlscert "github.com/grepplabs/mqtt-proxy/pkg/tls/cert/source"
 	"github.com/oklog/run"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -42,9 +45,14 @@ func registerServer(m map[string]setupFunc, app *kingpin.Application) {
 	cmd.Flag("mqtt.reader-buffer-size", "Read buffer size pro tcp connection.").Default("1024").IntVar(&cfg.MQTT.ReaderBufferSize)
 	cmd.Flag("mqtt.writer-buffer-size", "Write buffer size pro tcp connection.").Default("1024").IntVar(&cfg.MQTT.WriterBufferSize)
 
-	cmd.Flag("mqtt.server-tls-cert", "TLS Certificate for MQTT server, leave blank to disable TLS").Default("").StringVar(&cfg.MQTT.TLSSrv.Cert)
-	cmd.Flag("mqtt.server-tls-key", "TLS Key for the MQTT server, leave blank to disable TLS").Default("").StringVar(&cfg.MQTT.TLSSrv.Key)
-	cmd.Flag("mqtt.server-tls-client-ca", "TLS CA to verify clients against. If no client CA is specified, there is no client verification on server side. (tls.NoClientCert)").Default("").StringVar(&cfg.MQTT.TLSSrv.ClientCA)
+	cmd.Flag("mqtt.server-tls.enable", "Enable server side TLS").Default("false").BoolVar(&cfg.MQTT.TLSSrv.Enable)
+	cmd.Flag("mqtt.server-tls.cert-source", "TLS certificate source").Default(config.CertSourceFile).EnumVar(&cfg.MQTT.TLSSrv.CertSource, config.CertSourceFile)
+	cmd.Flag("mqtt.server-tls.refresh", "Option to specify the refresh interval for the TLS certificates.").Default("0s").DurationVar(&cfg.MQTT.TLSSrv.Refresh)
+
+	cmd.Flag("mqtt.server-tls.file.cert", "TLS Certificate for MQTT server, leave blank to disable TLS").Default("").StringVar(&cfg.MQTT.TLSSrv.File.Cert)
+	cmd.Flag("mqtt.server-tls.file.key", "TLS Key for the MQTT server, leave blank to disable TLS").Default("").StringVar(&cfg.MQTT.TLSSrv.File.Key)
+	cmd.Flag("mqtt.server-tls.file.client-ca", "TLS CA to verify clients against. If no client CA is specified, there is no client verification on server side.").Default("").StringVar(&cfg.MQTT.TLSSrv.File.ClientCA)
+	cmd.Flag("mqtt.server-tls.file.client-clr", "TLS X509 CLR signed be the client CA. If no revocation list is specified, only client CA is verified").Default("").StringVar(&cfg.MQTT.TLSSrv.File.ClientCLR)
 
 	cmd.Flag("mqtt.handler.ignore-unsupported", "List of unsupported messages which are ignored. One of: [SUBSCRIBE, UNSUBSCRIBE]").PlaceHolder("MSG").EnumsVar(&cfg.MQTT.Handler.IgnoreUnsupported, "SUBSCRIBE", "UNSUBSCRIBE")
 	cmd.Flag("mqtt.handler.allow-unauthenticated", "List of messages for which connection is not disconnected if unauthenticated request is received. One of: [PUBLISH, PUBREL, PINGREQ]").PlaceHolder("MSG").EnumsVar(&cfg.MQTT.Handler.AllowUnauthenticated, "PUBLISH", "PUBREL", "PINGREQ")
@@ -162,9 +170,32 @@ func runServer(
 	{
 		logger.Infof("setting up MQTT server")
 
-		tlsCfg, err := tls.NewServerConfig(logger, cfg.MQTT.TLSSrv.Cert, cfg.MQTT.TLSSrv.Key, cfg.MQTT.TLSSrv.ClientCA)
-		if err != nil {
-			return errors.Wrap(err, "setup MQTT server")
+		var tlsConfig *tls.Config
+		if cfg.MQTT.TLSSrv.Enable {
+			logger.Infof("enabling server side TLS")
+			var (
+				source tlscert.ServerSource
+				err    error
+			)
+			switch cfg.MQTT.TLSSrv.CertSource {
+			case config.CertSourceFile:
+				source, err = filesource.New(
+					filesource.WithLogger(logger),
+					filesource.WithX509KeyPair(cfg.MQTT.TLSSrv.File.Cert, cfg.MQTT.TLSSrv.File.Key),
+					filesource.WithClientAuthFile(cfg.MQTT.TLSSrv.File.ClientCA),
+					filesource.WithClientCRLFile(cfg.MQTT.TLSSrv.File.ClientCLR),
+					filesource.WithRefresh(cfg.MQTT.TLSSrv.Refresh),
+				)
+				if err != nil {
+					return errors.Wrap(err, "setup cert file source")
+				}
+			default:
+				return errors.Errorf("unknown cert source %s", cfg.MQTT.TLSSrv.CertSource)
+			}
+			tlsConfig, err = servertls.NewServerConfig(logger, source)
+			if err != nil {
+				return errors.Wrap(err, "setup server TLS config")
+			}
 		}
 
 		handler := mqtthandler.New(logger, registry, publisher,
@@ -186,7 +217,7 @@ func runServer(
 			mqttserver.WithReaderBufferSize(cfg.MQTT.ReaderBufferSize),
 			mqttserver.WithWriterBufferSize(cfg.MQTT.WriterBufferSize),
 			mqttserver.WithHandler(handler),
-			mqttserver.WithTLSConfig(tlsCfg),
+			mqttserver.WithTLSConfig(tlsConfig),
 		)
 
 		_ = promauto.With(registry).NewGaugeFunc(prometheus.GaugeOpts{

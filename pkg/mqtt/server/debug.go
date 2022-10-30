@@ -18,7 +18,7 @@ type loggingConn struct {
 	logger log.Logger
 }
 
-//noinspection GoUnusedExportedFunction
+// noinspection GoUnusedExportedFunction
 func NewLoggingConnFunc(baseName string, logger log.Logger) func(c net.Conn) net.Conn {
 	return func(c net.Conn) net.Conn {
 		return newLoggingConn(baseName, logger, c)

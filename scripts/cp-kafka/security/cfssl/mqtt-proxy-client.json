@@ -1,0 +1,16 @@
+{
+  "CN": "mqtt-proxy-client",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "DE",
+      "L": "Bonn",
+      "O": "grepplabs",
+      "OU": "mqtt-proxy client",
+      "ST": "NRW"
+    }
+  ]
+}

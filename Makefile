@@ -2,7 +2,7 @@
 
 .PHONY: clean build fmt test
 
-TAG           ?= v0.0.2
+TAG           ?= v0.1.0
 
 BUILD_FLAGS   ?=
 BINARY        ?= mqtt-proxy
@@ -47,7 +47,7 @@ lint: ## Lint
 	golint $$(go list ./...) 2>&1
 
 test: ## Test
-	GO111MODULE=on go test -mod=vendor -v ./...
+	GO111MODULE=on go test -mod=vendor $(BUILD_FLAGS) -v ./...
 
 build: vet ## Build executable
 	CGO_ENABLED=1 GO111MODULE=on go build -mod=vendor -o $(BINARY) $(BUILD_FLAGS) -ldflags "$(LDFLAGS)" .

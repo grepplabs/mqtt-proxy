@@ -1,0 +1,7 @@
+*.csr
+*.pem
+*.not-signed
+*.bak
+*.bak2
+*.text
+

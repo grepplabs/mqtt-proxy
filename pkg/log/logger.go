@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-//Fields Type to pass when we want to call WithFields for structured logging
+// Fields Type to pass when we want to call WithFields for structured logging
 type Fields map[string]interface{}
 
 const (
@@ -50,7 +50,7 @@ const (
 	ContextLogTag string = "logging"
 )
 
-//Logger is our contract for the logger
+// Logger is our contract for the logger
 type Logger interface {
 	Print(message string)
 
@@ -116,7 +116,7 @@ type LogConfig struct {
 	LogFieldNames LogFieldNames
 }
 
-//NewLogger returns an instance of logger
+// NewLogger returns an instance of logger
 func NewLogger(config LogConfig) Logger {
 	return newZapLogger(config)
 }
@@ -126,7 +126,7 @@ var (
 	once     sync.Once
 )
 
-//InitInstance initialize logger which will be returned by GetInstance
+// InitInstance initialize logger which will be returned by GetInstance
 func InitInstance(logger Logger) {
 	once.Do(func() {
 		instance = logger
@@ -142,7 +142,7 @@ func GetInstance() Logger {
 	return instance
 }
 
-//NewDefaultLogger returns an instance of logger with default parameters
+// NewDefaultLogger returns an instance of logger with default parameters
 func NewDefaultLogger() Logger {
 	config := LogConfig{
 		LogFormat: LogFormatLogfmt,

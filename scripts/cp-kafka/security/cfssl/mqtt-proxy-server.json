@@ -1,0 +1,22 @@
+{
+  "CN": "mqtt-proxy-server",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "DE",
+      "L": "Bonn",
+      "O": "grepplabs",
+      "OU": "mqtt-proxy server",
+      "ST": "NRW"
+    }
+  ],
+  "hosts": [
+    "localhost",
+    "127.0.0.1",
+    "mqtt-proxy",
+    "mqtt-proxy-ssl"
+  ]
+}

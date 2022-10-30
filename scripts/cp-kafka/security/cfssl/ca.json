@@ -1,0 +1,16 @@
+{
+  "CN": "MQTT Proxy Root CA",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "DE",
+      "L": "Bonn",
+      "O": "grepplabs",
+      "OU": "grepplabs Root CA",
+      "ST": "NRW"
+    }
+  ]
+}

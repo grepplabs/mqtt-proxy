@@ -1,0 +1,46 @@
+VERSION 0.6
+FROM cfssl/cfssl:1.6.1
+WORKDIR "/workdir"
+RUN apt-get update && apt-get install -y --no-install-recommends openssl bc && rm -rf /var/lib/apt/lists/*
+
+version:
+    RUN --no-cache cfssl version
+
+clean:
+    LOCALLY
+    RUN rm -f *.pem
+ca:
+    FROM +sources
+    RUN cfssl gencert -initca ca.json | cfssljson -bare ca
+    SAVE ARTIFACT ca-key.pem AS LOCAL ca-key.pem
+    SAVE ARTIFACT ca.pem AS LOCAL ca.pem
+
+intermediate:
+    FROM +ca
+    RUN cfssl gencert -initca intermediate-ca.json | cfssljson -bare intermediate_ca
+    RUN cfssl sign -ca ca.pem -ca-key ca-key.pem -config cfssl.json -profile intermediate_ca intermediate_ca.csr | cfssljson -bare intermediate_ca
+    RUN cat intermediate_ca.pem ca.pem > ca-l2-l1.pem > chain_ca-l2-l1.pem
+    RUN echo "" | cfssl gencrl - intermediate_ca.pem intermediate_ca-key.pem | base64 -d | openssl crl -inform DER -out intermediate-crl.pem
+    SAVE ARTIFACT *.pem AS LOCAL .
+
+hosts:
+    FROM +intermediate
+
+    RUN cfssl gencert -ca ca.pem -ca-key ca-key.pem -config cfssl.json -profile=server mqtt-proxy-server.json | cfssljson -bare mqtt-proxy-server-l1
+    RUN cfssl gencert -ca intermediate_ca.pem -ca-key intermediate_ca-key.pem -config cfssl.json -profile=server mqtt-proxy-server.json | cfssljson -bare mqtt-proxy-server-l2
+    RUN cat mqtt-proxy-server-l2.pem intermediate_ca.pem > mqtt-proxy-server-l2-l1.pem
+
+    RUN cfssl gencert -ca ca.pem -ca-key ca-key.pem -config cfssl.json -profile=client mqtt-proxy-client.json | cfssljson -bare mqtt-proxy-client-1-l1
+    RUN cfssl gencert -ca ca.pem -ca-key ca-key.pem -config cfssl.json -profile=client mqtt-proxy-client.json | cfssljson -bare mqtt-proxy-client-2-l1
+    RUN SERIALNUMBER=$(openssl x509 -noout -serial -in mqtt-proxy-client-1-l1.pem | cut -d'=' -f2) && echo "obase=10; ibase=16; $SERIALNUMBER" | bc | cfssl gencrl - ca.pem ca-key.pem | base64 -d | openssl crl -inform DER -out mqtt-proxy-client-1-l1-crl.pem
+    RUN SERIALNUMBER=$(openssl x509 -noout -serial -in mqtt-proxy-client-2-l1.pem | cut -d'=' -f2) && echo "obase=10; ibase=16; $SERIALNUMBER" | bc | cfssl gencrl - ca.pem ca-key.pem | base64 -d | openssl crl -inform DER -out mqtt-proxy-client-2-l1-crl.pem
+
+    RUN cfssl gencert -ca intermediate_ca.pem -ca-key intermediate_ca-key.pem -config cfssl.json -profile=client mqtt-proxy-client.json | cfssljson -bare mqtt-proxy-client-1-l2
+    RUN cfssl gencert -ca intermediate_ca.pem -ca-key intermediate_ca-key.pem -config cfssl.json -profile=client mqtt-proxy-client.json | cfssljson -bare mqtt-proxy-client-2-l2
+    RUN SERIALNUMBER=$(openssl x509 -noout -serial -in mqtt-proxy-client-1-l2.pem | cut -d'=' -f2) && echo "obase=10; ibase=16; $SERIALNUMBER" | bc | cfssl gencrl - intermediate_ca.pem intermediate_ca-key.pem | base64 -d | openssl crl -inform DER -out mqtt-proxy-client-1-l2-crl.pem
+    RUN SERIALNUMBER=$(openssl x509 -noout -serial -in mqtt-proxy-client-2-l2.pem | cut -d'=' -f2) && echo "obase=10; ibase=16; $SERIALNUMBER" | bc | cfssl gencrl - intermediate_ca.pem intermediate_ca-key.pem | base64 -d | openssl crl -inform DER -out mqtt-proxy-client-2-l2-crl.pem
+
+    SAVE ARTIFACT *.pem AS LOCAL .
+
+sources:
+    COPY *.json .

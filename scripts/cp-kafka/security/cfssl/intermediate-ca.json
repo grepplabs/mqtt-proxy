@@ -1,0 +1,19 @@
+{
+  "CN": "MQTT Proxy Intermediate CA",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "DE",
+      "L": "Bonn",
+      "O": "grepplabs",
+      "OU": "grepplabs Intermediate CA",
+      "ST": "NRW"
+    }
+  ],
+  "ca": {
+    "expiry": "42720h"
+  }
+}

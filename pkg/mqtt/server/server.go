@@ -129,7 +129,7 @@ func (srv *Server) ListenAndServe() (err error) {
 	return srv.Serve(l)
 }
 
-func (srv *Server) ListenAndServeTLS(certFile, keyFile string) (err error) {
+func (srv *Server) ListenAndServeTLS(tlsConfig *tls.Config) (err error) {
 	if srv.inShutdown.Load() {
 		return ErrServerClosed
 	}
@@ -150,22 +150,10 @@ func (srv *Server) ListenAndServeTLS(certFile, keyFile string) (err error) {
 	l := &onceCloseListener{Listener: conn}
 	defer l.Close()
 
-	return srv.ServeTLS(l, certFile, keyFile)
+	return srv.ServeTLS(l, tlsConfig)
 }
 
-func (srv *Server) ServeTLS(l net.Listener, certFile, keyFile string) error {
-	config := srv.TLSConfig
-
-	configHasCert := len(config.Certificates) > 0 || config.GetCertificate != nil
-	if !configHasCert || certFile != "" || keyFile != "" {
-		var err error
-		config.Certificates = make([]tls.Certificate, 1)
-		config.Certificates[0], err = tls.LoadX509KeyPair(certFile, keyFile)
-		if err != nil {
-			return err
-		}
-	}
-
+func (srv *Server) ServeTLS(l net.Listener, config *tls.Config) error {
 	tlsListener := tls.NewListener(l, config)
 	return srv.Serve(tlsListener)
 }
@@ -315,14 +303,14 @@ func (srv *Server) numListeners() int {
 	return len(srv.listeners)
 }
 
-// Number of active connections
+// NumActiveConn provides number of active connections
 func (srv *Server) NumActiveConn() int {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 	return len(srv.activeConn)
 }
 
-// Number of total connections
+// NumTotalConn provides number of total connections
 func (srv *Server) NumTotalConn() int64 {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
@@ -332,11 +320,6 @@ func (srv *Server) NumTotalConn() int64 {
 func ListenAndServe(addr string, handler Handler) error {
 	server := &Server{Addr: addr, Handler: handler, ErrorLog: log.GetInstance()}
 	return server.ListenAndServe()
-}
-
-func ListenAndServeTLS(addr, certFile, keyFile string, handler Handler) error {
-	server := &Server{Addr: addr, Handler: handler, ErrorLog: log.GetInstance()}
-	return server.ListenAndServeTLS(certFile, keyFile)
 }
 
 // onceCloseListener wraps a net.Listener, protecting it from  multiple Close calls.
