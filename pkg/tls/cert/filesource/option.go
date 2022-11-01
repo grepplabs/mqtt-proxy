@@ -37,3 +37,9 @@ func WithRefresh(refresh time.Duration) Option {
 		c.refresh = refresh
 	}
 }
+
+func WithNotifyFunc(notifyFunc func()) Option {
+	return func(c *fileSource) {
+		c.notifyFunc = notifyFunc
+	}
+}

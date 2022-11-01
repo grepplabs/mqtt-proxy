@@ -56,7 +56,7 @@ func (s *Store) CertStore() CertStore {
 func (s *Store) SetServerCerts(certs ServerCerts) {
 	cs := &CertStore{Certificates: certs.Certificates, ClientCAs: certs.ClientCAs, ClientCRLs: certs.ClientCRLs}
 	s.cs.Store(cs)
-	s.logger.Infof("stored x509 certs for names [%s], clrs [%s]", strings.Join(s.names(cs.Certificates), "|"), strings.Join(s.clrs(cs.ClientCRLs), "|"))
+	s.logger.Infof("stored x509 certs for names [%s], clrs %d [%s]", strings.Join(s.names(cs.Certificates), "|"), len(cs.ClientCRLs), strings.Join(s.clrs(cs.ClientCRLs), "|"))
 }
 
 func (s *Store) names(certs []tls.Certificate) []string {

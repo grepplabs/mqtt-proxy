@@ -47,7 +47,10 @@ lint: ## Lint
 	golint $$(go list ./...) 2>&1
 
 test: ## Test
-	GO111MODULE=on go test -mod=vendor $(BUILD_FLAGS) -v ./...
+	GO111MODULE=on go test -count=1 -mod=vendor $(BUILD_FLAGS) -v ./...
+
+test.race: ## Test with race detection
+	GO111MODULE=on go test -race -count=1 -mod=vendor $(BUILD_FLAGS) -v ./...
 
 build: vet ## Build executable
 	CGO_ENABLED=1 GO111MODULE=on go build -mod=vendor -o $(BINARY) $(BUILD_FLAGS) -ldflags "$(LDFLAGS)" .

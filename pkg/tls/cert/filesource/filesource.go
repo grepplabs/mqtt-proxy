@@ -17,13 +17,13 @@ const (
 )
 
 type fileSource struct {
-	certFile       string
-	keyFile        string
-	clientAuthFile string
-	clientCRLFile  string
-	refresh        time.Duration
-	logger         log.Logger
-
+	certFile        string
+	keyFile         string
+	clientAuthFile  string
+	clientCRLFile   string
+	refresh         time.Duration
+	logger          log.Logger
+	notifyFunc      func()
 	lastServerCerts atomic.Pointer[tlscert.ServerCerts]
 }
 
@@ -46,6 +46,14 @@ func New(opts ...Option) (tlscert.ServerSource, error) {
 	}
 	s.lastServerCerts.Store(lastServerCerts)
 	return s, nil
+}
+
+func MustNew(opts ...Option) tlscert.ServerSource {
+	serverSource, err := New(opts...)
+	if err != nil {
+		panic(`filesource: New(): ` + err.Error())
+	}
+	return serverSource
 }
 
 func (s *fileSource) getServerCerts() (*tlscert.ServerCerts, error) {
@@ -91,10 +99,14 @@ func (s *fileSource) ServerCerts() chan tlscert.ServerCerts {
 	if initialServerCert != nil {
 		ch <- *initialServerCert
 	}
-	go func() {
-		tlscert.Watch(s.logger, ch, s.refresh, initialServerCert, s.refreshServerCerts)
+	if s.refresh <= 0 {
 		close(ch)
-	}()
+	} else {
+		go func() {
+			tlscert.Watch(s.logger, ch, s.refresh, initialServerCert, s.refreshServerCerts, s.notifyFunc)
+			close(ch)
+		}()
+	}
 	return ch
 }
 

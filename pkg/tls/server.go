@@ -16,6 +16,15 @@ const (
 	initLoadTimeout = 15 * time.Second
 )
 
+// MustNewServerConfig is like NewServerConfig but panics if the config cannot be created.
+func MustNewServerConfig(logger log.Logger, src source.ServerSource) *tls.Config {
+	c, err := NewServerConfig(logger, src)
+	if err != nil {
+		panic(`tls: NewServerConfig(): ` + err.Error())
+	}
+	return c
+}
+
 // NewServerConfig provides new server TLS configuration.
 func NewServerConfig(logger log.Logger, src source.ServerSource) (*tls.Config, error) {
 	store := source.NewStore(logger)
