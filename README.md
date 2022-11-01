@@ -25,7 +25,7 @@ MQTT Proxy allows MQTT clients to send messages to other messaging systems
     * [ ] Others
 * [x] Helm chart
 * [x] Client certificate revocation list
-* [ ] Server certificate rotation
+* [ ] Server certificates rotation
     * [x] Files certificate source
     * [ ] HashiCorp Vault certificate source
 
