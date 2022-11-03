@@ -20,7 +20,7 @@ func (p *ConnackPacket) Name() string {
 }
 
 func (p *ConnackPacket) String() string {
-	return fmt.Sprintf("%s SessionPresent: %t ReturnCode: %d", p.FixedHeader, p.SessionPresent, p.ReturnCode)
+	return fmt.Sprintf("%v SessionPresent: %t ReturnCode: %d", p.FixedHeader, p.SessionPresent, p.ReturnCode)
 }
 
 func (p *ConnackPacket) Write(w io.Writer) (err error) {

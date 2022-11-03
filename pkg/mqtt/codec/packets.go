@@ -2,9 +2,8 @@ package mqttcodec
 
 import (
 	"bytes"
+	"fmt"
 	"io"
-
-	"github.com/pkg/errors"
 )
 
 type ControlPacket interface {
@@ -44,7 +43,7 @@ func ReadPacket(r io.Reader) (ControlPacket, error) {
 		return nil, err
 	}
 	if n != fh.RemainingLength {
-		return nil, errors.Errorf("failed to read encoded data, read %d from %d", n, fh.RemainingLength)
+		return nil, fmt.Errorf("failed to read encoded data, read %d from %d", n, fh.RemainingLength)
 	}
 	err = cp.Unpack(bytes.NewBuffer(packetBytes))
 	return cp, err
@@ -116,6 +115,6 @@ func NewControlPacketWithHeader(fh FixedHeader) (ControlPacket, error) {
 	case DISCONNECT:
 		return &DisconnectPacket{FixedHeader: fh}, nil
 	default:
-		return nil, errors.Errorf("unsupported packet type 0x%x", fh.MessageType)
+		return nil, fmt.Errorf("unsupported packet type 0x%x", fh.MessageType)
 	}
 }

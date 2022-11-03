@@ -19,7 +19,7 @@ func (p *PubackPacket) Name() string {
 }
 
 func (p *PubackPacket) String() string {
-	return fmt.Sprintf("%s MessageID: %d", p.FixedHeader, p.MessageID)
+	return fmt.Sprintf("%v MessageID: %d", p.FixedHeader, p.MessageID)
 }
 
 func (p *PubackPacket) Write(w io.Writer) (err error) {

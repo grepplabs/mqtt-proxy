@@ -21,7 +21,7 @@ func (p *SubackPacket) Name() string {
 }
 
 func (p *SubackPacket) String() string {
-	return fmt.Sprintf("%s MessageID: %d ReturnCodes %v", p.FixedHeader, p.MessageID, p.ReturnCodes)
+	return fmt.Sprintf("%v MessageID: %d ReturnCodes %v", p.FixedHeader, p.MessageID, p.ReturnCodes)
 }
 
 func (p *SubackPacket) Write(w io.Writer) (err error) {

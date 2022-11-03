@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -14,7 +15,6 @@ import (
 	"github.com/grepplabs/mqtt-proxy/pkg/log"
 	mqttcodec "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec"
 	"github.com/grepplabs/mqtt-proxy/pkg/runtime"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/atomic"
 )
@@ -254,13 +254,13 @@ func (s *Publisher) getKafkaTopic(mqttTopic string) (string, error) {
 	if s.opts.defaultTopic != "" {
 		return s.opts.defaultTopic, nil
 	}
-	return "", errors.Errorf("Kafka topic not found for MQTT topic %s", mqttTopic)
+	return "", fmt.Errorf("Kafka topic not found for MQTT topic %s", mqttTopic)
 }
 
 func (s *Publisher) Publish(ctx context.Context, request *apis.PublishRequest) (*apis.PublishResponse, error) {
 	producer := s.producers[request.Qos]
 	if producer == nil {
-		return nil, errors.Errorf("kafka producer for qos %d not found", request.Qos)
+		return nil, fmt.Errorf("kafka producer for qos %d not found", request.Qos)
 	}
 
 	msg, err := s.newKafkaMessage(request, nil)
@@ -279,7 +279,7 @@ func (s *Publisher) Publish(ctx context.Context, request *apis.PublishRequest) (
 		case *kafka.Message:
 			return &apis.PublishResponse{ID: &e.TopicPartition, Error: e.TopicPartition.Error}, nil
 		default:
-			return nil, errors.Errorf("unexpected event type: %v: %v", reflect.TypeOf(e), e)
+			return nil, fmt.Errorf("unexpected event type: %v: %v", reflect.TypeOf(e), e)
 		}
 	case <-ctx.Done():
 		return nil, errors.New("context done")
@@ -295,7 +295,7 @@ func (s *Publisher) PublishAsync(_ context.Context, request *apis.PublishRequest
 
 	producer := s.producers[request.Qos]
 	if producer == nil {
-		return errors.Errorf("kafka producer for qos %d not found", request.Qos)
+		return fmt.Errorf("kafka producer for qos %d not found", request.Qos)
 	}
 	msg, err := s.newKafkaMessage(request, &publishCallback{request: request, callback: callback})
 	if err != nil {

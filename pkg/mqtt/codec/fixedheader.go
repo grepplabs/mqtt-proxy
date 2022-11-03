@@ -5,8 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-
-	"github.com/pkg/errors"
 )
 
 const maxRemainingLength = 268435455
@@ -25,10 +23,10 @@ func (fh *FixedHeader) MessageName() string {
 
 func (fh *FixedHeader) validate() error {
 	if fh.RemainingLength < 0 {
-		return errors.Errorf("negative remaining length %d", fh.RemainingLength)
+		return fmt.Errorf("negative remaining length %d", fh.RemainingLength)
 	}
 	if fh.RemainingLength > maxRemainingLength {
-		return errors.Errorf("the maximum remaining length is %d, but was %d", maxRemainingLength, fh.RemainingLength)
+		return fmt.Errorf("the maximum remaining length is %d, but was %d", maxRemainingLength, fh.RemainingLength)
 	}
 	return nil
 }
@@ -58,7 +56,7 @@ func (fh *FixedHeader) pack() bytes.Buffer {
 	return header
 }
 
-func (fh FixedHeader) String() string {
+func (fh *FixedHeader) String() string {
 	return fmt.Sprintf("%s: Dup: %t QoS: %s Retain: %t rLength: %d", MqttMessageTypeNames[fh.MessageType], fh.Dup, MqttQoSNames[fh.Qos], fh.Retain, fh.RemainingLength)
 }
 
@@ -94,7 +92,7 @@ func decodeLength(r io.Reader) (int, error) {
 		return 0, err
 	}
 	if byteReader.bytesRead > 4 {
-		return 0, errors.Errorf("the maximum number of bytes in the remaining length is 4, but was %d", byteReader.bytesRead)
+		return 0, fmt.Errorf("the maximum number of bytes in the remaining length is 4, but was %d", byteReader.bytesRead)
 	}
 	return int(remainingLength), nil
 }

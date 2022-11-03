@@ -2,7 +2,7 @@ package mqtthandler
 
 import (
 	"context"
-	"github.com/pkg/errors"
+	"fmt"
 	"time"
 
 	"github.com/grepplabs/mqtt-proxy/apis"
@@ -171,12 +171,12 @@ func (h *MQTTHandler) doPublish(ctx context.Context, publisher apis.Publisher, r
 	if h.isPublishAsync(publishRequest.Qos) {
 		err := publisher.PublishAsync(ctx, publishRequest, publishCallback)
 		if err != nil {
-			return errors.Wrap(err, "async publish failed")
+			return fmt.Errorf("async publish failed: %w", err)
 		}
 	} else {
 		publishResponse, err := publisher.Publish(ctx, publishRequest)
 		if err != nil {
-			return errors.Wrap(err, "sync publish failed")
+			return fmt.Errorf("sync publish failed: %w", err)
 		}
 		publishCallback(publishRequest, publishResponse)
 	}

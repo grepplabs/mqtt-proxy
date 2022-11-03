@@ -19,7 +19,7 @@ func (p *PubrelPacket) Name() string {
 }
 
 func (p *PubrelPacket) String() string {
-	return fmt.Sprintf("%s MessageID: %d", p.FixedHeader, p.MessageID)
+	return fmt.Sprintf("%v MessageID: %d", p.FixedHeader, p.MessageID)
 }
 
 func (p *PubrelPacket) Write(w io.Writer) (err error) {

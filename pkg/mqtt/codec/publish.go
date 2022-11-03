@@ -22,7 +22,7 @@ func (c *PublishPacket) Name() string {
 }
 
 func (p *PublishPacket) String() string {
-	return fmt.Sprintf("%s TopicName: %s MessageID: %d Message: %s", p.FixedHeader, p.TopicName, p.MessageID, string(p.Message))
+	return fmt.Sprintf("%v TopicName: %s MessageID: %d Message: %s", p.FixedHeader, p.TopicName, p.MessageID, string(p.Message))
 }
 
 func (p *PublishPacket) Write(w io.Writer) (err error) {

@@ -2,10 +2,11 @@ package noop
 
 import (
 	"context"
+	"errors"
+
 	"github.com/grepplabs/mqtt-proxy/apis"
 	"github.com/grepplabs/mqtt-proxy/pkg/log"
 	"github.com/grepplabs/mqtt-proxy/pkg/runtime"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/atomic"
 )

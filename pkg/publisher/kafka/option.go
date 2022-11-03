@@ -1,11 +1,11 @@
 package kafka
 
 import (
+	"errors"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/grepplabs/mqtt-proxy/pkg/config"
-	"github.com/pkg/errors"
 )
 
 type options struct {

@@ -2,10 +2,11 @@ package mqtt
 
 import (
 	"context"
+	"fmt"
+
 	"github.com/grepplabs/mqtt-proxy/pkg/log"
 	mqttserver "github.com/grepplabs/mqtt-proxy/pkg/mqtt/server"
 	"github.com/grepplabs/mqtt-proxy/pkg/prober"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -60,10 +61,10 @@ func (s *Server) TotalConnections() int64 {
 func (s *Server) ListenAndServe() error {
 	if s.opts.tlsConfig == nil {
 		s.logger.WithField("address", s.opts.listen).Infof("listening for MQTT requests")
-		return errors.Wrap(s.srv.ListenAndServe(), "serve MQTT")
+		return fmt.Errorf("serve MQTT: %w", s.srv.ListenAndServe())
 	} else {
 		s.logger.WithField("address", s.opts.listen).Infof("listening TLS for MQTT request")
-		return errors.Wrap(s.srv.ListenAndServeTLS(s.opts.tlsConfig), "serve TLS MQTT")
+		return fmt.Errorf("serve TLS MQTT: %w ", s.srv.ListenAndServeTLS(s.opts.tlsConfig))
 	}
 }
 

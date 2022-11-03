@@ -1,13 +1,13 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"github.com/pkg/errors"
 )
 
 // publisher names
@@ -183,20 +183,20 @@ func (c *TopicMappings) Set(value string) error {
 	for _, pair := range strings.Split(value, ",") {
 		kv := strings.Split(pair, "=")
 		if len(kv) != 2 {
-			return errors.Errorf("expected key=value, but got %s", pair)
+			return fmt.Errorf("expected key=value, but got %s", pair)
 		}
 		k := strings.TrimSpace(kv[0])
 		v := strings.TrimSpace(kv[1])
 		if k == "" {
-			return errors.Errorf("empty topic key %s", pair)
+			return fmt.Errorf("empty topic key %s", pair)
 		}
 		if v == "" {
-			return errors.Errorf("empty regex value %s", pair)
+			return fmt.Errorf("empty regex value %s", pair)
 		}
 
 		r, err := regexp.Compile(v)
 		if err != nil {
-			return errors.Wrapf(err, "invalid topic mapping regexp '%s'", v)
+			return fmt.Errorf("invalid topic mapping regexp '%s': %w", v, err)
 		}
 
 		c.Mappings = append(c.Mappings, TopicMapping{Topic: k, RegExp: r})

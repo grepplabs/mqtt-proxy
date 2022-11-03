@@ -21,7 +21,7 @@ func (p *UnsubscribePacket) Name() string {
 }
 
 func (p *UnsubscribePacket) String() string {
-	return fmt.Sprintf("%s MessageID: %d %+v", p.FixedHeader, p.MessageID, p.TopicFilters)
+	return fmt.Sprintf("%v MessageID: %d %+v", p.FixedHeader, p.MessageID, p.TopicFilters)
 }
 
 func (p *UnsubscribePacket) Write(w io.Writer) (err error) {

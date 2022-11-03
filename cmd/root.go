@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/grepplabs/mqtt-proxy/pkg/log"
 	"github.com/oklog/run"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/common/version"
@@ -40,7 +40,7 @@ func Execute() {
 
 	cmd, err := app.Parse(os.Args[1:])
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, errors.Wrapf(err, "error parsing commandline arguments"))
+		_, _ = fmt.Fprintln(os.Stderr, fmt.Errorf("error parsing commandline arguments: %w", err))
 		app.Usage(os.Args[1:])
 		os.Exit(2)
 	}

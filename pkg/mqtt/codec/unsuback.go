@@ -19,7 +19,7 @@ func (p *UnsubackPacket) Name() string {
 }
 
 func (p *UnsubackPacket) String() string {
-	return fmt.Sprintf("%s MessageID: %d", p.FixedHeader, p.MessageID)
+	return fmt.Sprintf("%v MessageID: %d", p.FixedHeader, p.MessageID)
 }
 
 func (p *UnsubackPacket) Write(w io.Writer) (err error) {

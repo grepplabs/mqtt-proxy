@@ -30,7 +30,7 @@ func (p *SubscribePacket) Name() string {
 }
 
 func (p *SubscribePacket) String() string {
-	return fmt.Sprintf("%s MessageID: %d %+v", p.FixedHeader, p.MessageID, p.TopicSubscriptions)
+	return fmt.Sprintf("%v MessageID: %d %+v", p.FixedHeader, p.MessageID, p.TopicSubscriptions)
 }
 
 func (p *SubscribePacket) Write(w io.Writer) (err error) {

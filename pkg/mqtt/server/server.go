@@ -3,12 +3,12 @@ package mqttserver
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"net"
 	"sync"
 	"time"
 
 	"github.com/grepplabs/mqtt-proxy/pkg/log"
-	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 )
 

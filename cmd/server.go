@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"crypto/tls"
+	"fmt"
+
 	"github.com/grepplabs/mqtt-proxy/apis"
 	authinst "github.com/grepplabs/mqtt-proxy/pkg/auth/instrument"
 	authnoop "github.com/grepplabs/mqtt-proxy/pkg/auth/noop"
@@ -19,7 +21,6 @@ import (
 	"github.com/grepplabs/mqtt-proxy/pkg/tls/cert/filesource"
 	tlscert "github.com/grepplabs/mqtt-proxy/pkg/tls/cert/source"
 	"github.com/oklog/run"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -122,10 +123,10 @@ func runServer(
 				authplain.WithCredentialsFile(cfg.MQTT.Handler.Authenticator.Plain.CredentialsFile),
 			)
 			if err != nil {
-				return errors.Wrap(err, "setup plain authenticator")
+				return fmt.Errorf("setup plain authenticator: %w", err)
 			}
 		default:
-			return errors.Errorf("unknown authenticator %s", cfg.MQTT.Handler.Authenticator.Name)
+			return fmt.Errorf("unknown authenticator %s", cfg.MQTT.Handler.Authenticator.Name)
 		}
 		authenticator = authinst.New(authenticator, registry)
 		defer func() {
@@ -154,10 +155,10 @@ func runServer(
 				pubkafka.WithWorkers(cfg.MQTT.Publisher.Kafka.Workers),
 			)
 			if err != nil {
-				return errors.Wrap(err, "setup kafka publisher")
+				return fmt.Errorf("setup kafka publisher: %w", err)
 			}
 		default:
-			return errors.Errorf("unknown publisher %s", cfg.MQTT.Publisher.Name)
+			return fmt.Errorf("unknown publisher %s", cfg.MQTT.Publisher.Name)
 		}
 		publisher = pubinst.New(publisher, registry)
 
@@ -187,14 +188,14 @@ func runServer(
 					filesource.WithRefresh(cfg.MQTT.TLSSrv.Refresh),
 				)
 				if err != nil {
-					return errors.Wrap(err, "setup cert file source")
+					return fmt.Errorf("setup cert file source: %w", err)
 				}
 			default:
-				return errors.Errorf("unknown cert source %s", cfg.MQTT.TLSSrv.CertSource)
+				return fmt.Errorf("unknown cert source %s", cfg.MQTT.TLSSrv.CertSource)
 			}
 			tlsConfig, err = servertls.NewServerConfig(logger, source)
 			if err != nil {
-				return errors.Wrap(err, "setup server TLS config")
+				return fmt.Errorf("setup server TLS config: %w", err)
 			}
 		}
 

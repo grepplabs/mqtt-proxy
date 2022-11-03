@@ -2,12 +2,12 @@ package http
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/pprof"
 
 	"github.com/grepplabs/mqtt-proxy/pkg/log"
 	"github.com/grepplabs/mqtt-proxy/pkg/prober"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -46,7 +46,7 @@ func New(logger log.Logger, registry *prometheus.Registry, prober *prober.HTTPPr
 
 func (s *Server) ListenAndServe() error {
 	s.logger.WithField("address", s.opts.listen).Infof("listening for HTTP requests and metrics")
-	return errors.Wrap(s.srv.ListenAndServe(), "serve HTTP and metrics")
+	return fmt.Errorf("serve HTTP and metrics: %w", s.srv.ListenAndServe())
 }
 
 func (s *Server) Shutdown(err error) {

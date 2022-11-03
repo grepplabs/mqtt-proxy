@@ -36,7 +36,7 @@ func (p *ConnectPacket) Name() string {
 
 func (p *ConnectPacket) String() string {
 	// Password is not provided
-	return fmt.Sprintf("%s ProtocolName: %s ProtocolLevel: %d  CleanSession: %t WillFlag: %t WillQos: %d WillRetain: %t HasUsername: %t HasPassword: %t KeepAliveSeconds: %d ClientID: %s WillTopic: %s Willmessage: %s Username: %s", p.FixedHeader, p.ProtocolName, p.ProtocolLevel, p.CleanSession, p.WillFlag, p.WillQos, p.WillRetain, p.HasUsername, p.HasPassword, p.KeepAliveSeconds, p.ClientIdentifier, p.WillTopic, p.WillMessage, p.Username)
+	return fmt.Sprintf("%v ProtocolName: %s ProtocolLevel: %d  CleanSession: %t WillFlag: %t WillQos: %d WillRetain: %t HasUsername: %t HasPassword: %t KeepAliveSeconds: %d ClientID: %s WillTopic: %s Willmessage: %s Username: %s", p.FixedHeader, p.ProtocolName, p.ProtocolLevel, p.CleanSession, p.WillFlag, p.WillQos, p.WillRetain, p.HasUsername, p.HasPassword, p.KeepAliveSeconds, p.ClientIdentifier, p.WillTopic, p.WillMessage, p.Username)
 }
 
 func (p *ConnectPacket) Write(w io.Writer) (err error) {

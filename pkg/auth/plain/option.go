@@ -1,11 +1,11 @@
 package plain
 
 import (
+	"fmt"
 	"io"
 	"os"
 
 	"encoding/csv"
-	"github.com/pkg/errors"
 )
 
 type options struct {
@@ -75,7 +75,7 @@ func credentialsFromCSV(reader io.Reader) (map[string]string, error) {
 			return nil, err
 		}
 		if len(record) != 2 {
-			return nil, errors.Errorf("csv record username,password expected but got %v", record)
+			return nil, fmt.Errorf("csv record username,password expected but got %v", record)
 		}
 		credentials[record[0]] = record[1]
 	}

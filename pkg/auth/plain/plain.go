@@ -2,7 +2,7 @@ package plain
 
 import (
 	"context"
-	"github.com/pkg/errors"
+	"fmt"
 
 	"github.com/grepplabs/mqtt-proxy/apis"
 	"github.com/grepplabs/mqtt-proxy/pkg/log"
@@ -26,7 +26,7 @@ func New(logger log.Logger, _ *prometheus.Registry, opts ...Option) (apis.UserPa
 	for _, o := range opts {
 		err := o.apply(&options)
 		if err != nil {
-			return nil, errors.Wrapf(err, "apply plain authenticator options")
+			return nil, fmt.Errorf("apply plain authenticator options: %w", err)
 		}
 	}
 
