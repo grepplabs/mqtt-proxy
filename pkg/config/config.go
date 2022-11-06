@@ -1,13 +1,14 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/alecthomas/kong"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/go-playground/validator/v10"
 )
 
 // publisher names
@@ -29,58 +30,71 @@ const (
 
 type Server struct {
 	HTTP struct {
-		ListenAddress string
-		GracePeriod   time.Duration
-	}
+		ListenAddress string        `default:"0.0.0.0:9090" help:"Listen host:port for HTTP endpoints." validate:"required"`
+		GracePeriod   time.Duration `default:"10s" help:"Time to wait after an interrupt received for HTTP Server." validate:"gte=0"`
+	} `embed:"" prefix:"http."`
 	MQTT struct {
-		ListenAddress    string
-		GracePeriod      time.Duration
-		ReadTimeout      time.Duration
-		WriteTimeout     time.Duration
-		IdleTimeout      time.Duration
-		ReaderBufferSize int
-		WriterBufferSize int
+		ListenAddress    string        `default:"0.0.0.0:1883" help:"Listen host:port for MQTT endpoints." validate:"required"`
+		GracePeriod      time.Duration `default:"10s" help:"Time to wait after an interrupt received for MQTT Server." validate:"gte=0"`
+		ReadTimeout      time.Duration `default:"5s" help:"Maximum duration for reading the entire request." validate:"gte=0"`
+		WriteTimeout     time.Duration `default:"5s" help:"Maximum duration before timing out writes of the response." validate:"gte=0"`
+		IdleTimeout      time.Duration `default:"0s" help:"Maximum duration before timing out writes of the response." validate:"gte=0"`
+		ReaderBufferSize int           `default:"1024" help:"Read buffer size pro tcp connection." validate:"gte=0"`
+		WriterBufferSize int           `default:"1024" help:"Write buffer size pro tcp connection." validate:"gte=0"`
 		TLSSrv           struct {
-			Enable     bool
-			CertSource string
-			Refresh    time.Duration
+			Enable     bool          `default:"false" help:"Enable server side TLS."`
+			CertSource string        `default:"${CertSourceDefault}" enum:"${CertSourceEnum}" help:"TLS certificate source. One of: [${CertSourceEnum}]"`
+			Refresh    time.Duration `default:"0s" help:"Option to specify the refresh interval for the TLS certificates." validate:"gte=0"`
 			File       struct {
-				Cert      string
-				Key       string
-				ClientCA  string
-				ClientCLR string
-			}
-		}
+				Cert      string `default:"" help:"TLS Certificate for MQTT server."`
+				Key       string `default:"" help:"TLS Key for the MQTT server."`
+				ClientCA  string `default:"" help:"TLS CA to verify clients against. If no client CA is specified, there is no client verification on server side."`
+				ClientCLR string `default:"" help:"TLS X509 CLR signed be the client CA. If no revocation list is specified, only client CA is verified."`
+			} `embed:"" prefix:"file."`
+		} `embed:"" prefix:"server-tls."`
 		Handler struct {
-			IgnoreUnsupported    []string
-			AllowUnauthenticated []string
+			IgnoreUnsupported    []string `placeholder:"MSG" enum:"${IgnoreUnsupportedEnum}" help:"List of unsupported messages which are ignored. One of: [${IgnoreUnsupportedEnum}]"`
+			AllowUnauthenticated []string `placeholder:"MSG" enum:"${AllowUnauthenticatedEnum}" help:"List of messages for which connection is not disconnected if unauthenticated request is received. One of: [${AllowUnauthenticatedEnum}]"`
 			Publish              struct {
-				Timeout time.Duration
+				Timeout time.Duration `default:"0s" help:"Maximum duration of sending publish request to broker." validate:"gte=0"`
 				Async   struct {
-					AtMostOnce  bool
-					AtLeastOnce bool
-					ExactlyOnce bool
-				}
-			}
+					AtMostOnce  bool `default:"false" help:"Async publish for AT_MOST_ONCE QoS."`
+					AtLeastOnce bool `default:"false" help:"Async publish for AT_LEAST_ONCE QoS."`
+					ExactlyOnce bool `default:"false" help:"Async publish for EXACTLY_ONCE QoS."`
+				} `embed:"" prefix:"async."`
+			} `embed:"" prefix:"publish."`
 			Authenticator struct {
-				Name  string
+				Name  string `default:"${AuthDefault}" enum:"${AuthEnum}" help:"Authenticator name. One of: [${AuthEnum}]"`
 				Plain struct {
-					Credentials     map[string]string
-					CredentialsFile string
-				}
-			}
-		}
+					Credentials     map[string]string `placeholder:"USERNAME=PASSWORD" help:"List of username and password fields."`
+					CredentialsFile string            `default:"" help:"Location of a headerless CSV file containing \"usernanme,password\" records."`
+				} `embed:"" prefix:"plain."`
+			} `embed:"" prefix:"auth."`
+		} `embed:"" prefix:"handler."`
 		Publisher struct {
-			Name  string
+			Name  string `default:"${PublisherDefault}" enum:"${PublisherEnum}" help:"Publisher name. One of: [${PublisherEnum}]"`
 			Kafka struct {
-				BootstrapServers string
-				GracePeriod      time.Duration
-				ConfArgs         KafkaConfigArgs
-				DefaultTopic     string
-				TopicMappings    TopicMappings
-				Workers          int
-			}
-		}
+				BootstrapServers string          `default:"localhost:9092" help:"Kafka bootstrap servers."`
+				GracePeriod      time.Duration   `default:"10s" help:"Time to wait after an interrupt received for Kafka publisher." validate:"gte=0"`
+				ConfArgs         KafkaConfigArgs `name:"config" placeholder:"PROP=VAL" help:"Comma separated list of properties."`
+				DefaultTopic     string          `default:"" help:"Default Kafka topic for MQTT publish messages."`
+				TopicMappings    TopicMappings   `placeholder:"TOPIC=REGEX" help:"Comma separated list of Kafka topic to MQTT topic mappings."`
+				Workers          int             `default:"1" help:"Number of kafka publisher workers." validate:"gte=1"`
+			} `embed:"" prefix:"kafka."`
+		} `embed:"" prefix:"publisher."`
+	} `embed:"" prefix:"mqtt."`
+}
+
+func ServerVars() kong.Vars {
+	return map[string]string{
+		"CertSourceDefault":        CertSourceFile,
+		"CertSourceEnum":           strings.Join([]string{CertSourceFile}, ", "),
+		"IgnoreUnsupportedEnum":    strings.Join([]string{"SUBSCRIBE", "UNSUBSCRIBE"}, ", "),
+		"AllowUnauthenticatedEnum": strings.Join([]string{"PUBLISH", "PUBREL", "PINGREQ"}, ", "),
+		"AuthDefault":              AuthNoop,
+		"AuthEnum":                 strings.Join([]string{AuthNoop, AuthPlain}, ", "),
+		"PublisherDefault":         PublisherNoop,
+		"PublisherEnum":            strings.Join([]string{PublisherNoop, PublisherKafka}, ", "),
 	}
 }
 
@@ -88,51 +102,11 @@ func (c *Server) Init() {
 	c.MQTT.Handler.Authenticator.Plain.Credentials = make(map[string]string)
 }
 
-func (c Server) Validate() error {
-	if c.HTTP.ListenAddress == "" {
-		return errors.New("http listen address must not be empty")
-	}
-	if c.HTTP.GracePeriod < 0 {
-		return errors.New("http grace period must be greater than or equal to 0")
-	}
-
-	if c.MQTT.ListenAddress == "" {
-		return errors.New("mqtt listen address must not be empty")
-	}
-	if c.MQTT.GracePeriod < 0 {
-		return errors.New("mqtt grace period must be greater than or equal to 0")
-	}
-	if c.MQTT.ReadTimeout < 0 {
-		return errors.New("mqtt read timeout must be greater than or equal to 0")
-	}
-	if c.MQTT.WriteTimeout < 0 {
-		return errors.New("mqtt write timeout must be greater than or equal to 0")
-	}
-	if c.MQTT.IdleTimeout < 0 {
-		return errors.New("mqtt idle timeout must be greater than or equal to 0")
-	}
-	if c.MQTT.ReaderBufferSize < 0 {
-		return errors.New("mqtt read buffer size must be greater than or equal to 0")
-	}
-	if c.MQTT.WriterBufferSize < 0 {
-		return errors.New("mqtt write buffer size must be greater than or equal to 0")
-	}
-	if c.MQTT.Handler.Publish.Timeout < 0 {
-		return errors.New("handler publish timeout must be greater than or equal to 0")
-	}
-	if c.MQTT.Publisher.Name == "" {
-		return errors.New("publisher name must not be empty")
-	}
-	if c.MQTT.Publisher.Name == PublisherKafka {
-		if c.MQTT.Publisher.Kafka.BootstrapServers == "" {
-			return errors.New("kafka bootstrap servers must not be empty")
-		}
-		if c.MQTT.Publisher.Kafka.GracePeriod < 0 {
-			return errors.New("kafka grace period must be greater than or equal to 0")
-		}
-		if c.MQTT.Publisher.Kafka.Workers < 1 {
-			return errors.New("kafka grace period must be greater than 0")
-		}
+func (c *Server) Validate() error {
+	validate := validator.New()
+	err := validate.Struct(c)
+	if err != nil {
+		return fmt.Errorf("config validation failure: %w", err)
 	}
 	return nil
 }
@@ -160,6 +134,11 @@ func (c *KafkaConfigArgs) Set(value string) error {
 		}
 	}
 	return nil
+}
+
+// UnmarshalText implements Kong encoding.TextUnmarshaler
+func (c *KafkaConfigArgs) UnmarshalText(text []byte) error {
+	return c.Set(string(text))
 }
 
 type TopicMappings struct {
@@ -206,4 +185,9 @@ func (c *TopicMappings) Set(value string) error {
 
 func (c *TopicMappings) String() string {
 	return fmt.Sprintf("%v", c.Mappings)
+}
+
+// UnmarshalText implements Kong encoding.TextUnmarshaler
+func (c *TopicMappings) UnmarshalText(text []byte) error {
+	return c.Set(string(text))
 }

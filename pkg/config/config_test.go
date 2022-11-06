@@ -107,6 +107,7 @@ func TestConfigValidation(t *testing.T) {
 				s.HTTP.ListenAddress = "localhost:9090"
 				s.MQTT.ListenAddress = "localhost:1883"
 				s.MQTT.Publisher.Name = PublisherNoop
+				s.MQTT.Publisher.Kafka.Workers = 1
 				return s
 			},
 		},

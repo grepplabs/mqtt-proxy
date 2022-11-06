@@ -5,47 +5,52 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 
+	"github.com/alecthomas/kong"
+	kongyaml "github.com/alecthomas/kong-yaml"
+	"github.com/grepplabs/mqtt-proxy/pkg/config"
 	"github.com/grepplabs/mqtt-proxy/pkg/log"
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/common/version"
 	"go.uber.org/automaxprocs/maxprocs"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 type setupFunc func(*run.Group, log.Logger, *prometheus.Registry) error
 
+type CLI struct {
+	LogConfig log.Config    `embed:"" prefix:"log."`
+	Server    config.Server `name:"server" cmd:"" help:"MQTT Proxy"`
+	Version   struct{}      `name:"version" cmd:"" help:"Version information"`
+}
+
 func Execute() {
-	app := kingpin.New(filepath.Base(os.Args[0]), "MQTT Proxy")
-
-	app.Version(version.Print("mqtt-proxy"))
-	app.HelpFlag.Short('h')
-
-	logConfig := log.LogConfig{}
-	app.Flag("log.level", "Log filtering One of: [fatal, error, warn, info, debug]").Default(log.Info).EnumVar(&logConfig.LogLevel, log.Fatal, log.Error, log.Warn, log.Info, log.Debug)
-	app.Flag("log.format", "Log format to use. One of: [logfmt, json, plain]").Default(log.LogFormatLogfmt).EnumVar(&logConfig.LogFormat, log.LogFormatLogfmt, log.LogFormatJson, log.LogFormatPlain)
-	app.Flag("log.field-name.time", "Log time field name").Default(log.TimeKey).StringVar(&logConfig.LogFieldNames.Time)
-	app.Flag("log.field-name.message", "Log message field name").Default(log.MessageKey).StringVar(&logConfig.LogFieldNames.Message)
-	app.Flag("log.field-name.error", "Log error field name").Default(log.ErrorKey).StringVar(&logConfig.LogFieldNames.Error)
-	app.Flag("log.field-name.caller", "Log caller field name").Default(log.CallerKey).StringVar(&logConfig.LogFieldNames.Caller)
-	app.Flag("log.field-name.level", "Log time field name").Default(log.LevelKey).StringVar(&logConfig.LogFieldNames.Level)
-
 	cmds := map[string]setupFunc{}
 
-	registerServer(cmds, app)
-
-	cmd, err := app.Parse(os.Args[1:])
-	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, fmt.Errorf("error parsing commandline arguments: %w", err))
-		app.Usage(os.Args[1:])
-		os.Exit(2)
+	var cli CLI
+	ctx := kong.Parse(&cli,
+		kong.Name(os.Args[0]),
+		kong.Description("MQTT Proxy"),
+		kong.Configuration(kong.JSON, "/etc/mqtt-proxy/config.json", "~/.mqtt-proxy.json"),
+		kong.Configuration(kongyaml.Loader, "/etc/mqtt-proxy/config.yaml", "~/.mqtt-proxy.yaml"),
+		kong.UsageOnError(),
+		log.Vars(), config.ServerVars())
+	switch ctx.Command() {
+	case "server":
+		cmds[ctx.Command()] = func(group *run.Group, logger log.Logger, registry *prometheus.Registry) error {
+			return runServer(group, logger, registry, &cli.Server)
+		}
+	case "version":
+		fmt.Println(version.Print("mqtt-proxy"))
+		os.Exit(0)
+	default:
+		fmt.Println(ctx.Command())
+		os.Exit(1)
 	}
 
-	logger := log.NewLogger(logConfig)
+	logger := log.NewLogger(cli.LogConfig)
 	log.InitInstance(logger)
 
 	undo, err := maxprocs.Set(maxprocs.Logger(func(template string, args ...interface{}) {
@@ -68,9 +73,9 @@ func Execute() {
 	)
 	var g run.Group
 
-	if err := cmds[cmd](&g, logger, metrics); err != nil {
+	if err := cmds[ctx.Command()](&g, logger, metrics); err != nil {
 		// Use %+v for github.com/pkg/errors error to print with stack.
-		logger.WithError(err).Fatalf("preparing %s command failed", cmd)
+		logger.WithError(err).Fatalf("preparing %s command failed", ctx.Command())
 	}
 	{
 		cancel := make(chan struct{})
@@ -81,7 +86,7 @@ func Execute() {
 		})
 	}
 	if err := g.Run(); err != nil {
-		logger.WithError(err).Fatalf("%s command failed", cmd)
+		logger.WithError(err).Fatalf("%s command failed", ctx.Command())
 	}
 	logger.Infof("exiting")
 }

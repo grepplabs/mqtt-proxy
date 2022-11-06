@@ -32,53 +32,53 @@ func TestZapLogger(t *testing.T) {
 			debug: false, info: true, warn: true, error: true, fatal: true, panic: true}},
 		{"default logger with nil error", NewDefaultLogger().WithError(nil), LevelEnabled{
 			debug: false, info: true, warn: true, error: true, fatal: true, panic: true}},
-		{"plain debug", NewLogger(LogConfig{LogFormat: LogFormatPlain, LogLevel: "debug"}), LevelEnabled{
+		{"plain debug", NewLogger(Config{Format: FormatPlain, Level: "debug"}), LevelEnabled{
 			debug: true, info: true, warn: true, error: true, panic: true, fatal: true}},
-		{"plain info", NewLogger(LogConfig{LogFormat: LogFormatPlain, LogLevel: "info"}), LevelEnabled{
+		{"plain info", NewLogger(Config{Format: FormatPlain, Level: "info"}), LevelEnabled{
 			debug: false, info: true, warn: true, error: true, panic: true, fatal: true}},
-		{"plain warn", NewLogger(LogConfig{LogFormat: LogFormatPlain, LogLevel: "warn"}), LevelEnabled{
+		{"plain warn", NewLogger(Config{Format: FormatPlain, Level: "warn"}), LevelEnabled{
 			debug: false, info: false, warn: true, error: true, panic: true, fatal: true}},
-		{"plain error", NewLogger(LogConfig{LogFormat: LogFormatPlain, LogLevel: "error"}), LevelEnabled{
+		{"plain error", NewLogger(Config{Format: FormatPlain, Level: "error"}), LevelEnabled{
 			debug: false, info: false, warn: false, error: true, panic: true, fatal: true}},
-		{"plain panic", NewLogger(LogConfig{LogFormat: LogFormatPlain, LogLevel: "panic"}), LevelEnabled{
+		{"plain panic", NewLogger(Config{Format: FormatPlain, Level: "panic"}), LevelEnabled{
 			debug: false, info: false, warn: false, error: false, panic: true, fatal: true}},
-		{"plain fatal", NewLogger(LogConfig{LogFormat: LogFormatPlain, LogLevel: "fatal"}), LevelEnabled{
+		{"plain fatal", NewLogger(Config{Format: FormatPlain, Level: "fatal"}), LevelEnabled{
 			debug: false, info: false, warn: false, error: false, panic: false, fatal: true}},
-		{"plain with error", NewLogger(LogConfig{LogFormat: LogFormatPlain, LogLevel: "info"}).WithError(errors.New("my error")), LevelEnabled{
+		{"plain with error", NewLogger(Config{Format: FormatPlain, Level: "info"}).WithError(errors.New("my error")), LevelEnabled{
 			debug: false, info: true, warn: true, error: true, fatal: true, panic: true}},
-		{"json debug", NewLogger(LogConfig{LogFormat: LogFormatJson, LogLevel: Debug}).WithFields(Fields{"tag": "value"}), LevelEnabled{
+		{"json debug", NewLogger(Config{Format: FormatJson, Level: Debug}).WithFields(Fields{"tag": "value"}), LevelEnabled{
 			debug: true, info: true, warn: true, error: true, panic: true, fatal: true}},
-		{"json info", NewLogger(LogConfig{LogFormat: LogFormatJson, LogLevel: Info}).WithFields(Fields{"tag": "value"}), LevelEnabled{
+		{"json info", NewLogger(Config{Format: FormatJson, Level: Info}).WithFields(Fields{"tag": "value"}), LevelEnabled{
 			debug: false, info: true, warn: true, error: true, panic: true, fatal: true}},
-		{"json warn", NewLogger(LogConfig{LogFormat: LogFormatJson, LogLevel: Warn}).WithFields(Fields{"tag": "value"}), LevelEnabled{
+		{"json warn", NewLogger(Config{Format: FormatJson, Level: Warn}).WithFields(Fields{"tag": "value"}), LevelEnabled{
 			debug: false, info: false, warn: true, error: true, panic: true, fatal: true}},
-		{"json error", NewLogger(LogConfig{LogFormat: LogFormatJson, LogLevel: Error}).WithFields(Fields{"tag": "value"}), LevelEnabled{
+		{"json error", NewLogger(Config{Format: FormatJson, Level: Error}).WithFields(Fields{"tag": "value"}), LevelEnabled{
 			debug: false, info: false, warn: false, error: true, panic: true, fatal: true}},
-		{"json panic", NewLogger(LogConfig{LogFormat: LogFormatJson, LogLevel: Panic}).WithFields(Fields{"tag": "value"}), LevelEnabled{
+		{"json panic", NewLogger(Config{Format: FormatJson, Level: Panic}).WithFields(Fields{"tag": "value"}), LevelEnabled{
 			debug: false, info: false, warn: false, error: false, panic: true, fatal: true}},
-		{"json fatal", NewLogger(LogConfig{LogFormat: LogFormatJson, LogLevel: Fatal}).WithFields(Fields{"tag": "value"}), LevelEnabled{
+		{"json fatal", NewLogger(Config{Format: FormatJson, Level: Fatal}).WithFields(Fields{"tag": "value"}), LevelEnabled{
 			debug: false, info: false, warn: false, error: false, panic: false, fatal: true}},
-		{"json with error", NewLogger(LogConfig{LogFormat: LogFormatJson, LogLevel: "info"}).WithError(errors.New("my error")), LevelEnabled{
+		{"json with error", NewLogger(Config{Format: FormatJson, Level: "info"}).WithError(errors.New("my error")), LevelEnabled{
 			debug: false, info: true, warn: true, error: true, fatal: true, panic: true}},
-		{"json changed field names", NewLogger(LogConfig{LogFormat: LogFormatJson, LogLevel: "info", LogFieldNames: LogFieldNames{
+		{"json changed field names", NewLogger(Config{Format: FormatJson, Level: "info", FieldNames: FieldNames{
 			Time: "time", Message: "message", Level: "lvl", Caller: "call", Error: "error",
 		}}).WithError(errors.New("my error")), LevelEnabled{
 			debug: false, info: true, warn: true, error: true, fatal: true, panic: true}},
-		{"logfmt debug", NewLogger(LogConfig{LogFormat: LogFormatLogfmt, LogLevel: Debug}), LevelEnabled{
+		{"logfmt debug", NewLogger(Config{Format: FormatLogfmt, Level: Debug}), LevelEnabled{
 			debug: true, info: true, warn: true, error: true, panic: true, fatal: true}},
-		{"logfmt info", NewLogger(LogConfig{LogFormat: LogFormatLogfmt, LogLevel: Info}), LevelEnabled{
+		{"logfmt info", NewLogger(Config{Format: FormatLogfmt, Level: Info}), LevelEnabled{
 			debug: false, info: true, warn: true, error: true, panic: true, fatal: true}},
-		{"logfmt warn", NewLogger(LogConfig{LogFormat: LogFormatLogfmt, LogLevel: Warn}), LevelEnabled{
+		{"logfmt warn", NewLogger(Config{Format: FormatLogfmt, Level: Warn}), LevelEnabled{
 			debug: false, info: false, warn: true, error: true, panic: true, fatal: true}},
-		{"logfmt error", NewLogger(LogConfig{LogFormat: LogFormatLogfmt, LogLevel: Error}), LevelEnabled{
+		{"logfmt error", NewLogger(Config{Format: FormatLogfmt, Level: Error}), LevelEnabled{
 			debug: false, info: false, warn: false, error: true, panic: true, fatal: true}},
-		{"logfmt panic", NewLogger(LogConfig{LogFormat: LogFormatLogfmt, LogLevel: Panic}), LevelEnabled{
+		{"logfmt panic", NewLogger(Config{Format: FormatLogfmt, Level: Panic}), LevelEnabled{
 			debug: false, info: false, warn: false, error: false, panic: true, fatal: true}},
-		{"logfmt fatal", NewLogger(LogConfig{LogFormat: LogFormatLogfmt, LogLevel: Fatal}), LevelEnabled{
+		{"logfmt fatal", NewLogger(Config{Format: FormatLogfmt, Level: Fatal}), LevelEnabled{
 			debug: false, info: false, warn: false, error: false, panic: false, fatal: true}},
-		{"logfmt with error", NewLogger(LogConfig{LogFormat: LogFormatLogfmt, LogLevel: "info"}).WithError(errors.New("my error")), LevelEnabled{
+		{"logfmt with error", NewLogger(Config{Format: FormatLogfmt, Level: "info"}).WithError(errors.New("my error")), LevelEnabled{
 			debug: false, info: true, warn: true, error: true, fatal: true, panic: true}},
-		{"logfmt changed field names", NewLogger(LogConfig{LogFormat: LogFormatLogfmt, LogLevel: "info", LogFieldNames: LogFieldNames{
+		{"logfmt changed field names", NewLogger(Config{Format: FormatLogfmt, Level: "info", FieldNames: FieldNames{
 			Time: "time", Message: "message", Level: "lvl", Caller: "call", Error: "error",
 		}}).WithError(errors.New("my error")), LevelEnabled{
 			debug: false, info: true, warn: true, error: true, fatal: true, panic: true}},

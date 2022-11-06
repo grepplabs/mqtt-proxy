@@ -14,9 +14,9 @@ import (
 )
 
 func newTestPublisherOrExit() *Publisher {
-	logger := log.NewLogger(log.LogConfig{
-		LogLevel:  log.Debug,
-		LogFormat: log.LogFormatLogfmt,
+	logger := log.NewLogger(log.Config{
+		Level:  log.Debug,
+		Format: log.FormatLogfmt,
 	})
 
 	var registry *prometheus.Registry

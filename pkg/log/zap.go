@@ -15,19 +15,19 @@ type zapLogger struct {
 	errorKey      string
 }
 
-func getEncoder(config LogConfig) zapcore.Encoder {
+func getEncoder(config Config) zapcore.Encoder {
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	encoderConfig.TimeKey = getStringOrDefault(config.LogFieldNames.Time, TimeKey)
-	encoderConfig.MessageKey = getStringOrDefault(config.LogFieldNames.Message, MessageKey)
-	encoderConfig.LevelKey = getStringOrDefault(config.LogFieldNames.Level, LevelKey)
-	encoderConfig.CallerKey = getStringOrDefault(config.LogFieldNames.Caller, CallerKey)
+	encoderConfig.TimeKey = getStringOrDefault(config.FieldNames.Time, TimeKey)
+	encoderConfig.MessageKey = getStringOrDefault(config.FieldNames.Message, MessageKey)
+	encoderConfig.LevelKey = getStringOrDefault(config.FieldNames.Level, LevelKey)
+	encoderConfig.CallerKey = getStringOrDefault(config.FieldNames.Caller, CallerKey)
 	encoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
 
-	switch config.LogFormat {
-	case LogFormatJson:
+	switch config.Format {
+	case FormatJson:
 		return zapcore.NewJSONEncoder(encoderConfig)
-	case LogFormatLogfmt:
+	case FormatLogfmt:
 		return zaplogfmt.NewEncoder(encoderConfig)
 	default:
 		return zapcore.NewConsoleEncoder(encoderConfig)
@@ -60,10 +60,10 @@ func getZapLevel(level string) zapcore.Level {
 	}
 }
 
-func newZapLogger(config LogConfig) Logger {
+func newZapLogger(config Config) Logger {
 	cores := []zapcore.Core{}
 
-	level := getZapLevel(config.LogLevel)
+	level := getZapLevel(config.Level)
 	writer := zapcore.Lock(os.Stderr)
 	core := zapcore.NewCore(getEncoder(config), writer, level)
 	cores = append(cores, core)
@@ -80,7 +80,7 @@ func newZapLogger(config LogConfig) Logger {
 	return &zapLogger{
 		sugaredLogger: logger,
 		level:         level,
-		errorKey:      getStringOrDefault(config.LogFieldNames.Error, ErrorKey),
+		errorKey:      getStringOrDefault(config.FieldNames.Error, ErrorKey),
 	}
 }
 
