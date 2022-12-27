@@ -13,10 +13,11 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/grepplabs/mqtt-proxy/apis"
 	"github.com/grepplabs/mqtt-proxy/pkg/log"
-	mqttcodec "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec"
 	"github.com/grepplabs/mqtt-proxy/pkg/runtime"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/atomic"
+
+	mqttproto "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec/proto"
 )
 
 const (
@@ -158,26 +159,26 @@ func (s *Publisher) Close() error {
 func newProducers(logger log.Logger, opts options) (map[byte]*kafkaProducer, error) {
 	producers := make(map[byte]*kafkaProducer)
 
-	atMostOnceProps := producerProperties(mqttcodec.AT_MOST_ONCE, opts)
+	atMostOnceProps := producerProperties(mqttproto.AT_MOST_ONCE, opts)
 	_ = atMostOnceProps.SetKey("acks", "0")
 	atMostOnceProducer, err := kafka.NewProducer(atMostOnceProps)
 	if err != nil {
 		return nil, err
 	}
-	producers[mqttcodec.AT_MOST_ONCE] = &kafkaProducer{
+	producers[mqttproto.AT_MOST_ONCE] = &kafkaProducer{
 		Producer: atMostOnceProducer, logger: logger.WithField("qos", "0")}
 
-	atLeastOnceProps := producerProperties(mqttcodec.AT_LEAST_ONCE, opts)
+	atLeastOnceProps := producerProperties(mqttproto.AT_LEAST_ONCE, opts)
 	_ = atLeastOnceProps.SetKey("acks", "all")
 	atLeastOnceProducer, err := kafka.NewProducer(atLeastOnceProps)
 	if err != nil {
 		closeProducers(producers)
 		return nil, err
 	}
-	producers[mqttcodec.AT_LEAST_ONCE] = &kafkaProducer{
+	producers[mqttproto.AT_LEAST_ONCE] = &kafkaProducer{
 		Producer: atLeastOnceProducer, logger: logger.WithField("qos", "1")}
 
-	exactlyOnceProps := producerProperties(mqttcodec.EXACTLY_ONCE, opts)
+	exactlyOnceProps := producerProperties(mqttproto.EXACTLY_ONCE, opts)
 	_ = exactlyOnceProps.SetKey("acks", "all")
 	_ = exactlyOnceProps.SetKey("enable.idempotence", "true")
 	exactlyOnceProducer, err := kafka.NewProducer(exactlyOnceProps)
@@ -185,7 +186,7 @@ func newProducers(logger log.Logger, opts options) (map[byte]*kafkaProducer, err
 		closeProducers(producers)
 		return nil, err
 	}
-	producers[mqttcodec.EXACTLY_ONCE] = &kafkaProducer{
+	producers[mqttproto.EXACTLY_ONCE] = &kafkaProducer{
 		Producer: exactlyOnceProducer, logger: logger.WithField("qos", "2")}
 
 	return producers, nil

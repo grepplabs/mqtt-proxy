@@ -7,7 +7,8 @@ import (
 
 	"github.com/grepplabs/mqtt-proxy/apis"
 	"github.com/grepplabs/mqtt-proxy/pkg/log"
-	mqttcodec "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec"
+	mqttproto "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec/proto"
+	mqtt311 "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec/v311"
 	mqttserver "github.com/grepplabs/mqtt-proxy/pkg/mqtt/server"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -27,8 +28,8 @@ type mqttMetrics struct {
 	responsesTotal *prometheus.CounterVec
 }
 
-func (h *MQTTHandler) ServeMQTT(c mqttserver.Conn, p mqttcodec.ControlPacket) {
-	h.metrics.requestsTotal.WithLabelValues(p.Name()).Inc()
+func (h *MQTTHandler) ServeMQTT(c mqttserver.Conn, p mqttproto.ControlPacket) {
+	h.metrics.requestsTotal.WithLabelValues(p.Name(), mqttproto.MqttProtocolVersionName(p.Version())).Inc()
 	h.mux.ServeMQTT(c, p)
 }
 
@@ -36,7 +37,7 @@ func (h *MQTTHandler) HandleFunc(messageType byte, handlerFunc mqttserver.Handle
 	h.mux.Handle(messageType, handlerFunc)
 }
 
-func (h *MQTTHandler) disconnectUnauthenticated(conn mqttserver.Conn, packet mqttcodec.ControlPacket) bool {
+func (h *MQTTHandler) disconnectUnauthenticated(conn mqttserver.Conn, packet mqttproto.ControlPacket) bool {
 	if conn.Properties().Authenticated() {
 		return false
 	}
@@ -51,8 +52,8 @@ func (h *MQTTHandler) disconnectUnauthenticated(conn mqttserver.Conn, packet mqt
 	return true
 }
 
-func (h *MQTTHandler) handleConnect(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
-	req := packet.(*mqttcodec.ConnectPacket)
+func (h *MQTTHandler) handleConnect(conn mqttserver.Conn, packet mqttproto.ControlPacket) {
+	req := packet.(*mqtt311.ConnectPacket)
 
 	h.logger.Infof("Handling MQTT message '%s' from /%v", req.Name(), conn.RemoteAddr())
 
@@ -65,17 +66,17 @@ func (h *MQTTHandler) handleConnect(conn mqttserver.Conn, packet mqttcodec.Contr
 	if req.KeepAliveSeconds > 0 {
 		conn.Properties().SetIdleTimeout(time.Duration(float64(req.KeepAliveSeconds)*1.5) * time.Second)
 	}
-	authenticated := returnCode == mqttcodec.Accepted
+	authenticated := returnCode == mqttproto.Accepted
 	conn.Properties().SetAuthenticated(authenticated)
 
-	res := mqttcodec.NewControlPacket(mqttcodec.CONNACK).(*mqttcodec.ConnackPacket)
+	res := mqtt311.NewControlPacket(mqttproto.CONNACK).(*mqtt311.ConnackPacket)
 	res.ReturnCode = returnCode
 
 	err = res.Write(conn)
 	if err != nil {
 		h.logger.WithError(err).Errorf("Write 'CONNACK' failed")
 	} else {
-		h.metrics.responsesTotal.WithLabelValues(res.Name()).Inc()
+		h.metrics.responsesTotal.WithLabelValues(res.Name(), mqttproto.MqttProtocolVersionName(res.Version())).Inc()
 	}
 	if !authenticated {
 		h.logger.Infof("Disconnect unauthenticated user '%s' from /%v", req.Username, conn.RemoteAddr())
@@ -84,7 +85,7 @@ func (h *MQTTHandler) handleConnect(conn mqttserver.Conn, packet mqttcodec.Contr
 	}
 }
 
-func (h *MQTTHandler) loginUser(packet *mqttcodec.ConnectPacket) (byte, error) {
+func (h *MQTTHandler) loginUser(packet *mqtt311.ConnectPacket) (byte, error) {
 	if h.opts.authenticator != nil {
 		authResp, err := h.opts.authenticator.Login(context.Background(), &apis.UserPasswordAuthRequest{
 			Username: packet.Username,
@@ -95,11 +96,11 @@ func (h *MQTTHandler) loginUser(packet *mqttcodec.ConnectPacket) (byte, error) {
 		}
 		return authResp.ReturnCode, nil
 	}
-	return mqttcodec.Accepted, nil
+	return mqttproto.Accepted, nil
 }
 
-func (h *MQTTHandler) handlePublish(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
-	req := packet.(*mqttcodec.PublishPacket)
+func (h *MQTTHandler) handlePublish(conn mqttserver.Conn, packet mqttproto.ControlPacket) {
+	req := packet.(*mqtt311.PublishPacket)
 
 	if h.disconnectUnauthenticated(conn, packet) {
 		return
@@ -110,38 +111,38 @@ func (h *MQTTHandler) handlePublish(conn mqttserver.Conn, packet mqttcodec.Contr
 	var publishCallback apis.PublishCallbackFunc
 
 	switch req.Qos {
-	case mqttcodec.AT_MOST_ONCE:
+	case mqttproto.AT_MOST_ONCE:
 		publishCallback = func(*apis.PublishRequest, *apis.PublishResponse) {
 			// nothing to send back, publishCallback can be used for metrics
 		}
-	case mqttcodec.AT_LEAST_ONCE:
+	case mqttproto.AT_LEAST_ONCE:
 		publishCallback = func(request *apis.PublishRequest, response *apis.PublishResponse) {
 			if response.Error != nil {
 				//TODO: property if close connection unable to deliver ?
 				return
 			}
-			res := mqttcodec.NewControlPacket(mqttcodec.PUBACK).(*mqttcodec.PubackPacket)
+			res := mqtt311.NewControlPacket(mqttproto.PUBACK).(*mqtt311.PubackPacket)
 			res.MessageID = request.MessageID
 			err := res.Write(conn)
 			if err != nil {
 				h.logger.WithError(err).Errorf("Write 'PUBACK' failed")
 			} else {
-				h.metrics.responsesTotal.WithLabelValues(res.Name()).Inc()
+				h.metrics.responsesTotal.WithLabelValues(res.Name(), mqttproto.MqttProtocolVersionName(res.Version())).Inc()
 			}
 		}
-	case mqttcodec.EXACTLY_ONCE:
+	case mqttproto.EXACTLY_ONCE:
 		publishCallback = func(req *apis.PublishRequest, resp *apis.PublishResponse) {
 			if resp.Error != nil {
 				//TODO: property if close connection unable to deliver ?
 				return
 			}
-			res := mqttcodec.NewControlPacket(mqttcodec.PUBREC).(*mqttcodec.PubrecPacket)
+			res := mqtt311.NewControlPacket(mqttproto.PUBREC).(*mqtt311.PubrecPacket)
 			res.MessageID = req.MessageID
 			err := res.Write(conn)
 			if err != nil {
 				h.logger.WithError(err).Errorf("Write 'PUBREC' failed")
 			} else {
-				h.metrics.responsesTotal.WithLabelValues(res.Name()).Inc()
+				h.metrics.responsesTotal.WithLabelValues(res.Name(), mqttproto.MqttProtocolVersionName(res.Version())).Inc()
 			}
 		}
 	default:
@@ -157,7 +158,7 @@ func (h *MQTTHandler) handlePublish(conn mqttserver.Conn, packet mqttcodec.Contr
 	}
 	err := h.doPublish(ctx, h.publisher, req, publishCallback)
 	if err != nil {
-		if req.Qos == mqttcodec.AT_MOST_ONCE {
+		if req.Qos == mqttproto.AT_MOST_ONCE {
 			h.logger.WithError(err).Warnf("Write 'PUBLISH' failed, ignoring ...")
 		} else {
 			h.logger.WithError(err).Errorf("Write 'PUBLISH' failed, closing the connection ...")
@@ -166,7 +167,7 @@ func (h *MQTTHandler) handlePublish(conn mqttserver.Conn, packet mqttcodec.Contr
 	}
 }
 
-func (h *MQTTHandler) doPublish(ctx context.Context, publisher apis.Publisher, req *mqttcodec.PublishPacket, publishCallback apis.PublishCallbackFunc) error {
+func (h *MQTTHandler) doPublish(ctx context.Context, publisher apis.Publisher, req *mqtt311.PublishPacket, publishCallback apis.PublishCallbackFunc) error {
 	publishRequest := newPublishRequest(req)
 	if h.isPublishAsync(publishRequest.Qos) {
 		err := publisher.PublishAsync(ctx, publishRequest, publishCallback)
@@ -185,17 +186,17 @@ func (h *MQTTHandler) doPublish(ctx context.Context, publisher apis.Publisher, r
 
 func (h MQTTHandler) isPublishAsync(qos byte) bool {
 	switch qos {
-	case mqttcodec.AT_MOST_ONCE:
+	case mqttproto.AT_MOST_ONCE:
 		return h.opts.publishAsyncAtMostOnce
-	case mqttcodec.AT_LEAST_ONCE:
+	case mqttproto.AT_LEAST_ONCE:
 		return h.opts.publishAsyncAtLeastOnce
-	case mqttcodec.EXACTLY_ONCE:
+	case mqttproto.EXACTLY_ONCE:
 		return h.opts.publishAsyncExactlyOnce
 	}
 	return false
 }
 
-func newPublishRequest(req *mqttcodec.PublishPacket) *apis.PublishRequest {
+func newPublishRequest(req *mqtt311.PublishPacket) *apis.PublishRequest {
 	return &apis.PublishRequest{
 		Dup:       req.Dup,
 		Qos:       req.Qos,
@@ -206,15 +207,15 @@ func newPublishRequest(req *mqttcodec.PublishPacket) *apis.PublishRequest {
 	}
 }
 
-func (h *MQTTHandler) handlePublishRelease(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
-	req := packet.(*mqttcodec.PubrelPacket)
+func (h *MQTTHandler) handlePublishRelease(conn mqttserver.Conn, packet mqttproto.ControlPacket) {
+	req := packet.(*mqtt311.PubrelPacket)
 
 	if h.disconnectUnauthenticated(conn, packet) {
 		return
 	}
 
 	h.logger.Debugf("Handling MQTT message '%s' from /%v", req.Name(), conn.RemoteAddr())
-	res := mqttcodec.NewControlPacket(mqttcodec.PUBCOMP).(*mqttcodec.PubcompPacket)
+	res := mqtt311.NewControlPacket(mqttproto.PUBCOMP).(*mqtt311.PubcompPacket)
 	res.MessageID = req.MessageID
 	err := res.Write(conn)
 	if err != nil {
@@ -222,23 +223,23 @@ func (h *MQTTHandler) handlePublishRelease(conn mqttserver.Conn, packet mqttcode
 	}
 }
 
-func (h *MQTTHandler) handlePing(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
-	req := packet.(*mqttcodec.PingreqPacket)
+func (h *MQTTHandler) handlePing(conn mqttserver.Conn, packet mqttproto.ControlPacket) {
+	req := packet.(*mqtt311.PingreqPacket)
 
 	if h.disconnectUnauthenticated(conn, packet) {
 		return
 	}
 
 	h.logger.Debugf("Handling MQTT message '%s' from /%v", req.Name(), conn.RemoteAddr())
-	res := mqttcodec.NewControlPacket(mqttcodec.PINGRESP)
+	res := mqtt311.NewControlPacket(mqttproto.PINGRESP)
 	err := res.Write(conn)
 	if err != nil {
 		h.logger.WithError(err).Errorf("Write 'PINGRESP' failed")
 	}
 }
 
-func (h *MQTTHandler) handleDisconnect(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
-	req := packet.(*mqttcodec.DisconnectPacket)
+func (h *MQTTHandler) handleDisconnect(conn mqttserver.Conn, packet mqttproto.ControlPacket) {
+	req := packet.(*mqtt311.DisconnectPacket)
 	h.logger.Infof("Handling MQTT message '%s' from /%v", req.Name(), conn.RemoteAddr())
 	err := conn.Close()
 	if err != nil {
@@ -246,7 +247,7 @@ func (h *MQTTHandler) handleDisconnect(conn mqttserver.Conn, packet mqttcodec.Co
 	}
 }
 
-func (h *MQTTHandler) ignore(conn mqttserver.Conn, packet mqttcodec.ControlPacket) {
+func (h *MQTTHandler) ignore(conn mqttserver.Conn, packet mqttproto.ControlPacket) {
 	h.logger.Debugf("No handler available for MQTT message '%s' from /%v. Ignoring", packet.Name(), conn.RemoteAddr())
 }
 
@@ -262,14 +263,14 @@ func New(logger log.Logger, registry *prometheus.Registry, publisher apis.Publis
 		metrics:   newMQTTMetrics(registry),
 		publisher: publisher,
 	}
-	h.HandleFunc(mqttcodec.CONNECT, h.handleConnect)
-	h.HandleFunc(mqttcodec.PUBLISH, h.handlePublish)
-	h.HandleFunc(mqttcodec.DISCONNECT, h.handleDisconnect)
-	h.HandleFunc(mqttcodec.PUBREL, h.handlePublishRelease)
-	h.HandleFunc(mqttcodec.PINGREQ, h.handlePing)
+	h.HandleFunc(mqttproto.CONNECT, h.handleConnect)
+	h.HandleFunc(mqttproto.PUBLISH, h.handlePublish)
+	h.HandleFunc(mqttproto.DISCONNECT, h.handleDisconnect)
+	h.HandleFunc(mqttproto.PUBREL, h.handlePublishRelease)
+	h.HandleFunc(mqttproto.PINGREQ, h.handlePing)
 
 	for _, name := range options.ignoreUnsupported {
-		for t, n := range mqttcodec.MqttMessageTypeNames {
+		for t, n := range mqttproto.MqttMessageTypeNames {
 			if n == name {
 				logger.Infof("%s requests will be ignored", name)
 				h.HandleFunc(t, h.ignore)
@@ -288,28 +289,28 @@ func newMQTTMetrics(registry *prometheus.Registry) *mqttMetrics {
 	requestsTotal := promauto.With(registry).NewCounterVec(prometheus.CounterOpts{
 		Name: "mqtt_proxy_handler_requests_total",
 		Help: "Total number of MQTT requests.",
-	}, []string{"type"})
+	}, []string{"type", "version"})
 
-	requestsTotal.WithLabelValues(mqttcodec.MqttMessageTypeNames[mqttcodec.CONNECT])
-	requestsTotal.WithLabelValues(mqttcodec.MqttMessageTypeNames[mqttcodec.PUBLISH])
-	requestsTotal.WithLabelValues(mqttcodec.MqttMessageTypeNames[mqttcodec.DISCONNECT])
-	requestsTotal.WithLabelValues(mqttcodec.MqttMessageTypeNames[mqttcodec.PUBREL])
-	requestsTotal.WithLabelValues(mqttcodec.MqttMessageTypeNames[mqttcodec.PINGREQ])
-	requestsTotal.WithLabelValues(mqttcodec.MqttMessageTypeNames[mqttcodec.SUBSCRIBE])
-	requestsTotal.WithLabelValues(mqttcodec.MqttMessageTypeNames[mqttcodec.UNSUBSCRIBE])
+	requestsTotal.WithLabelValues(mqttproto.MqttMessageTypeNames[mqttproto.CONNECT], mqttproto.MqttProtocolVersionName(mqttproto.MQTT_DEFAULT_PROTOCOL_VERSION))
+	requestsTotal.WithLabelValues(mqttproto.MqttMessageTypeNames[mqttproto.PUBLISH], mqttproto.MqttProtocolVersionName(mqttproto.MQTT_DEFAULT_PROTOCOL_VERSION))
+	requestsTotal.WithLabelValues(mqttproto.MqttMessageTypeNames[mqttproto.DISCONNECT], mqttproto.MqttProtocolVersionName(mqttproto.MQTT_DEFAULT_PROTOCOL_VERSION))
+	requestsTotal.WithLabelValues(mqttproto.MqttMessageTypeNames[mqttproto.PUBREL], mqttproto.MqttProtocolVersionName(mqttproto.MQTT_DEFAULT_PROTOCOL_VERSION))
+	requestsTotal.WithLabelValues(mqttproto.MqttMessageTypeNames[mqttproto.PINGREQ], mqttproto.MqttProtocolVersionName(mqttproto.MQTT_DEFAULT_PROTOCOL_VERSION))
+	requestsTotal.WithLabelValues(mqttproto.MqttMessageTypeNames[mqttproto.SUBSCRIBE], mqttproto.MqttProtocolVersionName(mqttproto.MQTT_DEFAULT_PROTOCOL_VERSION))
+	requestsTotal.WithLabelValues(mqttproto.MqttMessageTypeNames[mqttproto.UNSUBSCRIBE], mqttproto.MqttProtocolVersionName(mqttproto.MQTT_DEFAULT_PROTOCOL_VERSION))
 
 	responsesTotal := promauto.With(registry).NewCounterVec(prometheus.CounterOpts{
 		Name: "mqtt_proxy_handler_responses_total",
 		Help: "Total number of MQTT responses.",
-	}, []string{"type"})
+	}, []string{"type", "version"})
 
-	responsesTotal.WithLabelValues(mqttcodec.MqttMessageTypeNames[mqttcodec.CONNACK])
-	responsesTotal.WithLabelValues(mqttcodec.MqttMessageTypeNames[mqttcodec.PUBACK])
-	responsesTotal.WithLabelValues(mqttcodec.MqttMessageTypeNames[mqttcodec.PUBREC])
-	responsesTotal.WithLabelValues(mqttcodec.MqttMessageTypeNames[mqttcodec.PUBCOMP])
-	responsesTotal.WithLabelValues(mqttcodec.MqttMessageTypeNames[mqttcodec.SUBACK])
-	responsesTotal.WithLabelValues(mqttcodec.MqttMessageTypeNames[mqttcodec.UNSUBACK])
-	responsesTotal.WithLabelValues(mqttcodec.MqttMessageTypeNames[mqttcodec.PINGRESP])
+	responsesTotal.WithLabelValues(mqttproto.MqttMessageTypeNames[mqttproto.CONNACK], mqttproto.MqttProtocolVersionName(mqttproto.MQTT_DEFAULT_PROTOCOL_VERSION))
+	responsesTotal.WithLabelValues(mqttproto.MqttMessageTypeNames[mqttproto.PUBACK], mqttproto.MqttProtocolVersionName(mqttproto.MQTT_DEFAULT_PROTOCOL_VERSION))
+	responsesTotal.WithLabelValues(mqttproto.MqttMessageTypeNames[mqttproto.PUBREC], mqttproto.MqttProtocolVersionName(mqttproto.MQTT_DEFAULT_PROTOCOL_VERSION))
+	responsesTotal.WithLabelValues(mqttproto.MqttMessageTypeNames[mqttproto.PUBCOMP], mqttproto.MqttProtocolVersionName(mqttproto.MQTT_DEFAULT_PROTOCOL_VERSION))
+	responsesTotal.WithLabelValues(mqttproto.MqttMessageTypeNames[mqttproto.SUBACK], mqttproto.MqttProtocolVersionName(mqttproto.MQTT_DEFAULT_PROTOCOL_VERSION))
+	responsesTotal.WithLabelValues(mqttproto.MqttMessageTypeNames[mqttproto.UNSUBACK], mqttproto.MqttProtocolVersionName(mqttproto.MQTT_DEFAULT_PROTOCOL_VERSION))
+	responsesTotal.WithLabelValues(mqttproto.MqttMessageTypeNames[mqttproto.PINGRESP], mqttproto.MqttProtocolVersionName(mqttproto.MQTT_DEFAULT_PROTOCOL_VERSION))
 
 	return &mqttMetrics{
 		requestsTotal:  requestsTotal,

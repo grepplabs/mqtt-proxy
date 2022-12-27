@@ -1,120 +1,66 @@
-package mqttcodec
+package codec
 
 import (
 	"bytes"
 	"fmt"
 	"io"
+
+	mqttproto "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec/proto"
+	mqtt311 "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec/v311"
 )
 
-type ControlPacket interface {
-	Write(io.Writer) error
-	Unpack(io.Reader) error
-	String() string
-	Type() byte
-	Name() string
+func ReadPacket(r io.Reader, protocolVersion byte) (mqttproto.ControlPacket, error) {
+	if protocolVersion == 0 {
+		var (
+			err error
+			buf bytes.Buffer
+		)
+		versionReader := io.TeeReader(r, &buf)
+		protocolVersion, err = readConnectVersion(versionReader)
+		if err != nil {
+			return nil, err
+		}
+		r = io.MultiReader(bytes.NewReader(buf.Bytes()), r)
+	}
+	switch protocolVersion {
+	case mqttproto.MQTT_3_1_1:
+		return mqtt311.ReadPacket(r)
+	case mqttproto.MQTT_5:
+		return nil, mqtt311.NewConnAckError(mqttproto.RefusedUnacceptableProtocolVersion, "mqtt5 is not supported yet")
+	default:
+		return nil, mqtt311.NewConnAckError(mqttproto.RefusedUnacceptableProtocolVersion, fmt.Sprintf("unsupported protocol version %v", protocolVersion))
+	}
 }
 
-func ReadPacket(r io.Reader) (ControlPacket, error) {
-	var fh FixedHeader
+func readConnectVersion(r io.Reader) (byte, error) {
+	// fixed header
+	var fh mqttproto.FixedHeader
 	b1 := make([]byte, 1)
 	_, err := io.ReadFull(r, b1)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-
-	err = fh.unpack(b1[0], r)
+	err = fh.Unpack(b1[0], r)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-
-	err = fh.validate()
+	err = fh.Validate()
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-
-	cp, err := NewControlPacketWithHeader(fh)
+	if fh.MessageType != mqttproto.CONNECT {
+		return 0, fmt.Errorf("expected CONNECT packet but got type 0x%x", fh.MessageType)
+	}
+	// variable header
+	// Protocol Name
+	_, err = mqttproto.DecodeString(r)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-
-	packetBytes := make([]byte, fh.RemainingLength)
-	n, err := io.ReadFull(r, packetBytes)
+	// Protocol Version
+	version, err := mqttproto.DecodeByte(r)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	if n != fh.RemainingLength {
-		return nil, fmt.Errorf("failed to read encoded data, read %d from %d", n, fh.RemainingLength)
-	}
-	err = cp.Unpack(bytes.NewBuffer(packetBytes))
-	return cp, err
-}
-
-func NewControlPacket(packetType byte) ControlPacket {
-	switch packetType {
-	case CONNECT:
-		return &ConnectPacket{FixedHeader: FixedHeader{MessageType: CONNECT}}
-	case CONNACK:
-		return &ConnackPacket{FixedHeader: FixedHeader{MessageType: CONNACK}}
-	case PUBLISH:
-		return &PublishPacket{FixedHeader: FixedHeader{MessageType: PUBLISH}}
-	case PUBACK:
-		return &PubackPacket{FixedHeader: FixedHeader{MessageType: PUBACK}}
-	case PUBREC:
-		return &PubrecPacket{FixedHeader: FixedHeader{MessageType: PUBREC}}
-	case PUBREL:
-		return &PubrelPacket{FixedHeader: FixedHeader{MessageType: PUBREL}}
-	case PUBCOMP:
-		return &PubcompPacket{FixedHeader: FixedHeader{MessageType: PUBCOMP}}
-	case SUBSCRIBE:
-		return &SubscribePacket{FixedHeader: FixedHeader{MessageType: SUBSCRIBE}}
-	case SUBACK:
-		return &SubackPacket{FixedHeader: FixedHeader{MessageType: SUBACK}}
-	case UNSUBSCRIBE:
-		return &UnsubscribePacket{FixedHeader: FixedHeader{MessageType: UNSUBSCRIBE}}
-	case UNSUBACK:
-		return &UnsubackPacket{FixedHeader: FixedHeader{MessageType: UNSUBACK}}
-	case PINGREQ:
-		return &PingreqPacket{FixedHeader: FixedHeader{MessageType: PINGREQ}}
-	case PINGRESP:
-		return &PingrespPacket{FixedHeader: FixedHeader{MessageType: PINGRESP}}
-	case DISCONNECT:
-		return &DisconnectPacket{FixedHeader: FixedHeader{MessageType: DISCONNECT}}
-
-	}
-	return nil
-}
-
-func NewControlPacketWithHeader(fh FixedHeader) (ControlPacket, error) {
-	switch fh.MessageType {
-	case CONNECT:
-		return &ConnectPacket{FixedHeader: fh}, nil
-	case CONNACK:
-		return &ConnackPacket{FixedHeader: fh}, nil
-	case PUBLISH:
-		return &PublishPacket{FixedHeader: fh}, nil
-	case PUBACK:
-		return &PubackPacket{FixedHeader: fh}, nil
-	case PUBREC:
-		return &PubrecPacket{FixedHeader: fh}, nil
-	case PUBREL:
-		return &PubrelPacket{FixedHeader: fh}, nil
-	case PUBCOMP:
-		return &PubcompPacket{FixedHeader: fh}, nil
-	case SUBSCRIBE:
-		return &SubscribePacket{FixedHeader: fh}, nil
-	case SUBACK:
-		return &SubackPacket{FixedHeader: fh}, nil
-	case UNSUBSCRIBE:
-		return &UnsubscribePacket{FixedHeader: fh}, nil
-	case UNSUBACK:
-		return &UnsubackPacket{FixedHeader: fh}, nil
-	case PINGREQ:
-		return &PingreqPacket{FixedHeader: fh}, nil
-	case PINGRESP:
-		return &PingrespPacket{FixedHeader: fh}, nil
-	case DISCONNECT:
-		return &DisconnectPacket{FixedHeader: fh}, nil
-	default:
-		return nil, fmt.Errorf("unsupported packet type 0x%x", fh.MessageType)
-	}
+	return version, nil
 }

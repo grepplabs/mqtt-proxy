@@ -3,12 +3,12 @@ package apis
 import (
 	"context"
 
-	mqttcodec "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec"
+	mqttproto "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec/proto"
 )
 
 const (
-	AuthAccepted     = mqttcodec.Accepted
-	AuthUnauthorized = mqttcodec.RefusedNotAuthorized
+	AuthAccepted     = mqttproto.Accepted
+	AuthUnauthorized = mqttproto.RefusedNotAuthorized
 )
 
 type UserPasswordAuthRequest struct {

@@ -5,14 +5,16 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/grepplabs/mqtt-proxy/pkg/log"
 	"io"
 	"net"
 	"runtime"
 	"time"
 
-	mqttcodec "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec"
+	"github.com/grepplabs/mqtt-proxy/pkg/log"
 	"go.uber.org/atomic"
+
+	mqttcodec "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec"
+	mqttproto "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec/proto"
 )
 
 const (
@@ -20,8 +22,8 @@ const (
 	defaultWriteBufferSize  = 1024
 )
 
-func ReadMQTTMessage(reader io.Reader) (mqttcodec.ControlPacket, error) {
-	return mqttcodec.ReadPacket(reader)
+func ReadMQTTMessage(reader io.Reader, protocolVersion byte) (mqttproto.ControlPacket, error) {
+	return mqttcodec.ReadPacket(reader, protocolVersion)
 }
 
 // conn represents the server side of a mqtt connection.
@@ -41,14 +43,15 @@ type conn struct {
 }
 
 // Read next message from connection.
-func (c *conn) readRequest(ctx context.Context, properties Properties) (w *response, req mqttcodec.ControlPacket, err error) {
+func (c *conn) readRequest(ctx context.Context, properties Properties) (w *response, req mqttproto.ControlPacket, err error) {
 	if c.server.ReadTimeout > 0 {
 		_ = c.rwc.SetReadDeadline(time.Now().Add(c.server.ReadTimeout))
 	}
-	req, err = ReadMQTTMessage(c.bufr)
+	req, err = ReadMQTTMessage(c.bufr, properties.ProtocolVersion())
 	if err != nil {
 		return nil, nil, err
 	}
+	properties.SetProtocolVersion(req.Version())
 	return &response{conn: c, ctx: ctx, properties: properties}, req, nil
 }
 
@@ -91,6 +94,9 @@ func (c *conn) serve(ctx context.Context) {
 		c.setState(StateActive)
 
 		if err != nil {
+			if rp, ok := err.(mqttproto.ResponsePacket); ok {
+				_ = rp.Response().Write(c.rwc)
+			}
 			_ = c.rwc.Close()
 			if err != io.EOF && err != io.ErrUnexpectedEOF {
 				// can report error to some channel

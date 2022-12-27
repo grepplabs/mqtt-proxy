@@ -4,16 +4,17 @@ import (
 	"sync"
 
 	"github.com/grepplabs/mqtt-proxy/pkg/log"
-	"github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec"
+
+	mqttproto "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec/proto"
 )
 
 type Handler interface {
-	ServeMQTT(Conn, mqttcodec.ControlPacket)
+	ServeMQTT(Conn, mqttproto.ControlPacket)
 }
 
-type HandlerFunc func(Conn, mqttcodec.ControlPacket)
+type HandlerFunc func(Conn, mqttproto.ControlPacket)
 
-func (f HandlerFunc) ServeMQTT(c Conn, req mqttcodec.ControlPacket) {
+func (f HandlerFunc) ServeMQTT(c Conn, req mqttproto.ControlPacket) {
 	f(c, req)
 }
 
@@ -21,7 +22,7 @@ type serverHandler struct {
 	srv *Server
 }
 
-func (sh serverHandler) ServeMQTT(w Conn, req mqttcodec.ControlPacket) {
+func (sh serverHandler) ServeMQTT(w Conn, req mqttproto.ControlPacket) {
 	handler := sh.srv.Handler
 	if handler == nil {
 		handler = DefaultServeMux
@@ -58,7 +59,7 @@ func (mux *ServeMux) Handle(messageType byte, handler Handler) {
 	mux.m[messageType] = muxEntry{h: handler, messageType: messageType}
 }
 
-func (mux *ServeMux) ServeMQTT(c Conn, p mqttcodec.ControlPacket) {
+func (mux *ServeMux) ServeMQTT(c Conn, p mqttproto.ControlPacket) {
 	entry := mux.m[p.Type()]
 	if entry.h == nil {
 		mux.logger.Warnf("No handler available for MQTT message '%s' from /%v. Disconnecting", p.Name(), c.RemoteAddr())

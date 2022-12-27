@@ -16,11 +16,15 @@ type Properties interface {
 
 	Authenticated() bool   // Returns if the connection was authenticated
 	SetAuthenticated(bool) // Store the authenticated flag
+
+	ProtocolVersion() byte   // Returns the protocol
+	SetProtocolVersion(byte) // Stores the protocol version
 }
 
 type properties struct {
-	idleTimeout   atomic.Duration
-	authenticated atomic.Bool
+	idleTimeout     atomic.Duration
+	authenticated   atomic.Bool
+	protocolVersion atomic.Uint32
 }
 
 func (w *properties) IdleTimeout() time.Duration {
@@ -37,6 +41,14 @@ func (w *properties) Authenticated() bool {
 
 func (w *properties) SetAuthenticated(b bool) {
 	w.authenticated.Store(b)
+}
+
+func (w *properties) SetProtocolVersion(b byte) {
+	w.protocolVersion.Store(uint32(b))
+}
+
+func (w *properties) ProtocolVersion() byte {
+	return byte(w.protocolVersion.Load())
 }
 
 // Conn interface is used by a handler to send mqtt messages.
