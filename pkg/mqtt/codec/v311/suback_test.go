@@ -15,6 +15,7 @@ func TestNewSubackPacket(t *testing.T) {
 	packet := NewControlPacket(mqttproto.SUBACK).(*SubackPacket)
 	a.Equal(mqttproto.SUBACK, packet.MessageType)
 	a.Equal(mqttproto.MqttMessageTypeNames[packet.MessageType], packet.Name())
+	a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
 	t.Log(packet)
 }
 
@@ -78,6 +79,7 @@ func TestSubackPacketCodec(t *testing.T) {
 			}
 			packet := decoded.(*SubackPacket)
 			a.Equal(*tc.packet, *packet)
+			a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
 
 			// encode
 			var output bytes.Buffer

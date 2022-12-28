@@ -8,7 +8,7 @@ import (
 
 const (
 	AuthAccepted     = mqttproto.Accepted
-	AuthUnauthorized = mqttproto.RefusedNotAuthorized
+	AuthUnauthorized = mqttproto.RefusedBadUserNameOrPassword
 )
 
 type UserPasswordAuthRequest struct {

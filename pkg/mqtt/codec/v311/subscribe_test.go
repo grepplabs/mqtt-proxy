@@ -15,6 +15,7 @@ func TestNewSubscribePacket(t *testing.T) {
 	packet := NewControlPacket(mqttproto.SUBSCRIBE).(*SubscribePacket)
 	a.Equal(mqttproto.SUBSCRIBE, packet.MessageType)
 	a.Equal(mqttproto.MqttMessageTypeNames[packet.MessageType], packet.Name())
+	a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
 	t.Log(packet)
 }
 
@@ -92,6 +93,7 @@ func TestSubscribePacketCodec(t *testing.T) {
 			}
 			packet := decoded.(*SubscribePacket)
 			a.Equal(*tc.packet, *packet)
+			a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
 
 			// encode
 			var output bytes.Buffer

@@ -1,4 +1,4 @@
-package v311
+package v5
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ func TestNewPubrecPacket(t *testing.T) {
 	packet := NewControlPacket(mqttproto.PUBREC).(*PubrecPacket)
 	a.Equal(mqttproto.PUBREC, packet.MessageType)
 	a.Equal(mqttproto.MqttMessageTypeNames[packet.MessageType], packet.Name())
-	a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
+	a.Equal(mqttproto.MQTT_5, packet.Version())
 	t.Log(packet)
 }
 
@@ -26,17 +26,6 @@ func TestPubrecPacketCodec(t *testing.T) {
 		packet     *PubrecPacket
 	}{
 		{
-			name:       "message 1",
-			encodedHex: "50020001",
-			packet: &PubrecPacket{
-				FixedHeader: mqttproto.FixedHeader{
-					MessageType:     mqttproto.PUBREC,
-					RemainingLength: 2,
-				},
-				MessageID: 1,
-			},
-		},
-		{
 			name:       "message 1024",
 			encodedHex: "50020400",
 			packet: &PubrecPacket{
@@ -44,7 +33,34 @@ func TestPubrecPacketCodec(t *testing.T) {
 					MessageType:     mqttproto.PUBREC,
 					RemainingLength: 2,
 				},
-				MessageID: 1024,
+				MessageID:        1024,
+				PubrecProperties: Properties{RawData: []byte{}},
+			},
+		},
+		{
+			name:       "response code 128, no properties",
+			encodedHex: "500404008000",
+			packet: &PubrecPacket{
+				FixedHeader: mqttproto.FixedHeader{
+					MessageType:     mqttproto.PUBREC,
+					RemainingLength: 4,
+				},
+				MessageID:        1024,
+				ReasonCode:       0x80,
+				PubrecProperties: Properties{RawData: []byte{}},
+			},
+		},
+		{
+			name:       "response code 0, with properties",
+			encodedHex: "500f0400800b2600036161610003626262",
+			packet: &PubrecPacket{
+				FixedHeader: mqttproto.FixedHeader{
+					MessageType:     mqttproto.PUBREC,
+					RemainingLength: 15,
+				},
+				MessageID:        1024,
+				ReasonCode:       0x80,
+				PubrecProperties: Properties{RawData: MustHexDecodeString("2600036161610003626262")},
 			},
 		},
 	}
@@ -65,7 +81,7 @@ func TestPubrecPacketCodec(t *testing.T) {
 			}
 			packet := decoded.(*PubrecPacket)
 			a.Equal(*tc.packet, *packet)
-			a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
+			a.Equal(mqttproto.MQTT_5, packet.Version())
 
 			// encode
 			var output bytes.Buffer
@@ -73,6 +89,7 @@ func TestPubrecPacketCodec(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			a.Equal(tc.packet.RemainingLength, packet.RemainingLength)
 			encodedBytes = output.Bytes()
 			a.Equal(tc.encodedHex, hex.EncodeToString(encodedBytes))
 		})

@@ -62,20 +62,20 @@ func EncodeUint16(v uint16) []byte {
 	return b
 }
 
-func DecodeLength(r io.Reader) (int, error) {
+func DecodeUvarint(r io.Reader) (int, error) {
 	byteReader := newByteReader(r)
 	length, err := binary.ReadUvarint(byteReader)
 	if err != nil {
 		return 0, err
 	}
 	if byteReader.bytesRead > 4 {
-		return 0, fmt.Errorf("the maximum number of bytes in the length is 4, but was %d", byteReader.bytesRead)
+		return 0, fmt.Errorf("the maximum number of bytes in the variable byte integer is 4, but was %d", byteReader.bytesRead)
 	}
 	return int(length), nil
 }
 
-// WriteLength is a modified binary.PutUvarint
-func WriteLength(buffer *bytes.Buffer, x uint32) int {
+// WriteUvarint is a modified binary.PutUvarint
+func WriteUvarint(buffer *bytes.Buffer, x uint32) int {
 	i := 0
 	for x >= 0x80 {
 		buffer.WriteByte(byte(x) | 0x80)
@@ -103,4 +103,15 @@ func (r *byteReader) ReadByte() (byte, error) {
 	}
 	r.bytesRead += n
 	return r.buf[0], nil
+}
+
+type CountingReader struct {
+	Reader    io.Reader
+	BytesRead int
+}
+
+func (r *CountingReader) Read(p []byte) (n int, err error) {
+	n, err = r.Reader.Read(p)
+	r.BytesRead += n
+	return n, err
 }

@@ -28,6 +28,9 @@ test-publish:  ## test publish using mosquitto client
 	docker exec -it mqtt-client mosquitto_pub -L mqtt://mqtt-proxy:1883/dummy -m "test qos 0" --repeat 1 -q 0
 	docker exec -it mqtt-client mosquitto_pub -L mqtt://mqtt-proxy:1883/dummy -m "test qos 1" --repeat 1 -q 1
 	docker exec -it mqtt-client mosquitto_pub -L mqtt://mqtt-proxy:1883/dummy -m "test qos 2" --repeat 1 -q 2
+	docker exec -it mqtt-client mosquitto_pub -L mqtt://mqtt-proxy:1883/dummy -m "test qos 0" --repeat 1 -q 0 -V mqttv5
+	docker exec -it mqtt-client mosquitto_pub -L mqtt://mqtt-proxy:1883/dummy -m "test qos 1" --repeat 1 -q 1 -V mqttv5
+	docker exec -it mqtt-client mosquitto_pub -L mqtt://mqtt-proxy:1883/dummy -m "test qos 2" --repeat 1 -q 2 -V mqttv5
 
 test-listen: ## start kafka-console-consumer
 	docker exec -it broker kafka-console-consumer --bootstrap-server localhost:9092 --topic mqtt-test --property print.key=true --from-beginning
@@ -74,6 +77,9 @@ publish:
 	mosquitto_pub -L mqtt://localhost:2883/dummy -m "test qos 0" --repeat 1 -q 0
 	mosquitto_pub -L mqtt://localhost:2883/dummy -m "test qos 1" --repeat 1 -q 1
 	mosquitto_pub -L mqtt://localhost:2883/dummy -m "test qos 2" --repeat 1 -q 2
+	mosquitto_pub -L mqtt://localhost:2883/dummy -m "test qos 0" --repeat 1 -q 0 -V mqttv5
+	mosquitto_pub -L mqtt://localhost:2883/dummy -m "test qos 1" --repeat 1 -q 1 -V mqttv5
+	mosquitto_pub -L mqtt://localhost:2883/dummy -m "test qos 2" --repeat 1 -q 2 -V mqttv5
 
 ### TLS listener
 server-tls-generate-certs:

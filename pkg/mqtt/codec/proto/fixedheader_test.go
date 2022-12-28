@@ -145,12 +145,12 @@ func TestFixedHeaderDecodeError(t *testing.T) {
 		{
 			name:     "remaining length too long",
 			input:    "008080808001",
-			expected: "the maximum number of bytes in the length is 4, but was 5",
+			expected: "the maximum number of bytes in the variable byte integer is 4, but was 5",
 		},
 		{
 			name:     "remaining length too long",
 			input:    "00808080808001",
-			expected: "the maximum number of bytes in the length is 4, but was 6",
+			expected: "the maximum number of bytes in the variable byte integer is 4, but was 6",
 		},
 	}
 	for _, tc := range tests {

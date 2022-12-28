@@ -78,6 +78,7 @@ const (
 
 // MQTT 5 - 3.2.2.2 Connect Reason Code
 const (
-	RefusedUnspecifiedError           byte = 0x80 // 128
-	RefusedUnsupportedProtocolVersion byte = 0x84 // 132
+	RefusedV5UnspecifiedError           byte = 0x80 // 128
+	RefusedV5UnsupportedProtocolVersion byte = 0x84 // 132
+	RefusedV5BadUserNameOrPassword      byte = 0x86 // 134
 )

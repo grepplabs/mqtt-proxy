@@ -1,4 +1,4 @@
-package v311
+package v5
 
 import (
 	"bytes"
@@ -10,41 +10,29 @@ import (
 	mqttproto "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec/proto"
 )
 
-func TestNewPubcompPacket(t *testing.T) {
+func TestNewPingrespPacket(t *testing.T) {
 	a := assert.New(t)
-	packet := NewControlPacket(mqttproto.PUBCOMP).(*PubcompPacket)
-	a.Equal(mqttproto.PUBCOMP, packet.MessageType)
+	packet := NewControlPacket(mqttproto.PINGRESP).(*PingrespPacket)
+	a.Equal(mqttproto.PINGRESP, packet.MessageType)
 	a.Equal(mqttproto.MqttMessageTypeNames[packet.MessageType], packet.Name())
-	a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
+	a.Equal(mqttproto.MQTT_5, packet.Version())
 	t.Log(packet)
 }
 
-func TestPubcompPacketCodec(t *testing.T) {
+func TestPingrespPacketCodec(t *testing.T) {
 	tests := []struct {
 		name       string
 		encodedHex string
-		packet     *PubcompPacket
+		packet     *PingrespPacket
 	}{
 		{
-			name:       "message 1",
-			encodedHex: "70020001",
-			packet: &PubcompPacket{
+			name:       "ping",
+			encodedHex: "d000",
+			packet: &PingrespPacket{
 				FixedHeader: mqttproto.FixedHeader{
-					MessageType:     mqttproto.PUBCOMP,
-					RemainingLength: 2,
+					MessageType:     mqttproto.PINGRESP,
+					RemainingLength: 0,
 				},
-				MessageID: 1,
-			},
-		},
-		{
-			name:       "message 1024",
-			encodedHex: "70020400",
-			packet: &PubcompPacket{
-				FixedHeader: mqttproto.FixedHeader{
-					MessageType:     mqttproto.PUBCOMP,
-					RemainingLength: 2,
-				},
-				MessageID: 1024,
 			},
 		},
 	}
@@ -63,9 +51,9 @@ func TestPubcompPacketCodec(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			packet := decoded.(*PubcompPacket)
+			packet := decoded.(*PingrespPacket)
 			a.Equal(*tc.packet, *packet)
-			a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
+			a.Equal(mqttproto.MQTT_5, packet.Version())
 
 			// encode
 			var output bytes.Buffer
@@ -73,6 +61,7 @@ func TestPubcompPacketCodec(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			a.Equal(tc.packet.RemainingLength, packet.RemainingLength)
 			encodedBytes = output.Bytes()
 			a.Equal(tc.encodedHex, hex.EncodeToString(encodedBytes))
 		})

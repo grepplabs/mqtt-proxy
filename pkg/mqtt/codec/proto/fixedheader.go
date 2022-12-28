@@ -44,14 +44,14 @@ func (fh *FixedHeader) Unpack(typeAndFlags byte, r io.Reader) (err error) {
 	fh.Dup = (typeAndFlags & 0x08) == 0x08
 	fh.Qos = (typeAndFlags & 0x06) >> 1
 	fh.Retain = (typeAndFlags & 0x01) != 0
-	fh.RemainingLength, err = DecodeLength(r)
+	fh.RemainingLength, err = DecodeUvarint(r)
 	return err
 }
 
 func (fh *FixedHeader) Pack() bytes.Buffer {
 	var header bytes.Buffer
 	header.WriteByte(fh.getFixedHeaderByte1())
-	WriteLength(&header, uint32(fh.RemainingLength))
+	WriteUvarint(&header, uint32(fh.RemainingLength))
 	return header
 }
 

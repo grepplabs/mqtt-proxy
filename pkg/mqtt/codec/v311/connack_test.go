@@ -15,6 +15,7 @@ func TestNewConnackPacket(t *testing.T) {
 	packet := NewControlPacket(mqttproto.CONNACK).(*ConnackPacket)
 	a.Equal(mqttproto.CONNACK, packet.MessageType)
 	a.Equal(mqttproto.MqttMessageTypeNames[packet.MessageType], packet.Name())
+	a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
 	t.Log(packet)
 }
 
@@ -78,6 +79,7 @@ func TestConnackPacketCodec(t *testing.T) {
 			}
 			packet := decoded.(*ConnackPacket)
 			a.Equal(*tc.packet, *packet)
+			a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
 
 			// encode
 			var output bytes.Buffer

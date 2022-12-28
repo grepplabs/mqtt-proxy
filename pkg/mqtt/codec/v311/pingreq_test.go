@@ -15,6 +15,7 @@ func TestNewPingreqPacket(t *testing.T) {
 	packet := NewControlPacket(mqttproto.PINGREQ).(*PingreqPacket)
 	a.Equal(mqttproto.PINGREQ, packet.MessageType)
 	a.Equal(mqttproto.MqttMessageTypeNames[packet.MessageType], packet.Name())
+	a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
 	t.Log(packet)
 }
 
@@ -52,6 +53,7 @@ func TestPingreqPacketCodec(t *testing.T) {
 			}
 			packet := decoded.(*PingreqPacket)
 			a.Equal(*tc.packet, *packet)
+			a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
 
 			// encode
 			var output bytes.Buffer

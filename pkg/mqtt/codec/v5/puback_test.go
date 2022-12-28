@@ -1,4 +1,4 @@
-package v311
+package v5
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ func TestNewPubackPacket(t *testing.T) {
 	packet := NewControlPacket(mqttproto.PUBACK).(*PubackPacket)
 	a.Equal(mqttproto.PUBACK, packet.MessageType)
 	a.Equal(mqttproto.MqttMessageTypeNames[packet.MessageType], packet.Name())
-	a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
+	a.Equal(mqttproto.MQTT_5, packet.Version())
 	t.Log(packet)
 }
 
@@ -26,17 +26,6 @@ func TestPubackPacketCodec(t *testing.T) {
 		packet     *PubackPacket
 	}{
 		{
-			name:       "message 1",
-			encodedHex: "40020001",
-			packet: &PubackPacket{
-				FixedHeader: mqttproto.FixedHeader{
-					MessageType:     mqttproto.PUBACK,
-					RemainingLength: 2,
-				},
-				MessageID: 1,
-			},
-		},
-		{
 			name:       "message 1024",
 			encodedHex: "40020400",
 			packet: &PubackPacket{
@@ -44,7 +33,35 @@ func TestPubackPacketCodec(t *testing.T) {
 					MessageType:     mqttproto.PUBACK,
 					RemainingLength: 2,
 				},
-				MessageID: 1024,
+				MessageID:        1024,
+				ReasonCode:       0x00,
+				PubackProperties: Properties{RawData: []byte{}},
+			},
+		},
+		{
+			name:       "response code 128, no properties",
+			encodedHex: "400404008000",
+			packet: &PubackPacket{
+				FixedHeader: mqttproto.FixedHeader{
+					MessageType:     mqttproto.PUBACK,
+					RemainingLength: 4,
+				},
+				MessageID:        1024,
+				ReasonCode:       0x80,
+				PubackProperties: Properties{RawData: []byte{}},
+			},
+		},
+		{
+			name:       "response code 0, with properties",
+			encodedHex: "400f0400800b2600036161610003626262",
+			packet: &PubackPacket{
+				FixedHeader: mqttproto.FixedHeader{
+					MessageType:     mqttproto.PUBACK,
+					RemainingLength: 15,
+				},
+				MessageID:        1024,
+				ReasonCode:       0x80,
+				PubackProperties: Properties{RawData: MustHexDecodeString("2600036161610003626262")},
 			},
 		},
 	}
@@ -65,7 +82,7 @@ func TestPubackPacketCodec(t *testing.T) {
 			}
 			packet := decoded.(*PubackPacket)
 			a.Equal(*tc.packet, *packet)
-			a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
+			a.Equal(mqttproto.MQTT_5, packet.Version())
 
 			// encode
 			var output bytes.Buffer
@@ -73,6 +90,7 @@ func TestPubackPacketCodec(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			a.Equal(tc.packet.RemainingLength, packet.RemainingLength)
 			encodedBytes = output.Bytes()
 			a.Equal(tc.encodedHex, hex.EncodeToString(encodedBytes))
 		})

@@ -14,7 +14,7 @@ MQTT Proxy allows MQTT clients to send messages to other messaging systems
 
 * MQTT protocol
     * [x] [MQTT 3.1.1](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/mqtt-v3.1.1.html)
-    * [ ] [MQTT 5.0](https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.html)
+    * [x] [MQTT 5.0](https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.html)
 * Publisher
     * [x] Noop
     * [x] [Apache Kafka](https://kafka.apache.org/)
@@ -95,6 +95,9 @@ prerequisites
     docker exec -it mqtt-client mosquitto_pub -L mqtt://mqtt-proxy:1883/dummy -m "test qos 0" --repeat 1 -q 0
     docker exec -it mqtt-client mosquitto_pub -L mqtt://mqtt-proxy:1883/dummy -m "test qos 1" --repeat 1 -q 1
     docker exec -it mqtt-client mosquitto_pub -L mqtt://mqtt-proxy:1883/dummy -m "test qos 2" --repeat 1 -q 2
+    docker exec -it mqtt-client mosquitto_pub -L mqtt://mqtt-proxy:1883/dummy -m "test qos 0 / v5" --repeat 1 -q 0 -V mqttv5
+    docker exec -it mqtt-client mosquitto_pub -L mqtt://mqtt-proxy:1883/dummy -m "test qos 1 / v5" --repeat 1 -q 1 -V mqttv5
+    docker exec -it mqtt-client mosquitto_pub -L mqtt://mqtt-proxy:1883/dummy -m "test qos 2 / v5" --repeat 1 -q 2 -V mqttv5
     ```
 
     * proxy using Kafka SSL listener

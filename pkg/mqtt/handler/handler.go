@@ -3,15 +3,18 @@ package mqtthandler
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/grepplabs/mqtt-proxy/apis"
 	"github.com/grepplabs/mqtt-proxy/pkg/log"
 	mqttproto "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec/proto"
 	mqtt311 "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec/v311"
+	mqtt5 "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec/v5"
 	mqttserver "github.com/grepplabs/mqtt-proxy/pkg/mqtt/server"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 type MQTTHandler struct {
@@ -37,41 +40,47 @@ func (h *MQTTHandler) HandleFunc(messageType byte, handlerFunc mqttserver.Handle
 	h.mux.Handle(messageType, handlerFunc)
 }
 
-func (h *MQTTHandler) disconnectUnauthenticated(conn mqttserver.Conn, packet mqttproto.ControlPacket) bool {
+func (h *MQTTHandler) disconnectUnauthenticated(conn mqttserver.Conn, packetName string) bool {
 	if conn.Properties().Authenticated() {
 		return false
 	}
-	name := packet.Name()
 	for _, v := range h.opts.allowUnauthenticated {
-		if v == name {
+		if v == packetName {
 			return false
 		}
 	}
-	h.logger.Warnf("Unauthenticated '%s' from /%v", name, conn.RemoteAddr())
+	h.logger.Warnf("Unauthenticated '%s' from /%v", packetName, conn.RemoteAddr())
 	_ = conn.Close()
 	return true
 }
 
 func (h *MQTTHandler) handleConnect(conn mqttserver.Conn, packet mqttproto.ControlPacket) {
-	req := packet.(*mqtt311.ConnectPacket)
+	username, password, keepAliveSeconds, err := h.getConnectData(packet)
+	if err != nil {
+		h.logger.Error(err.Error())
+		_ = conn.Close()
+		return
+	}
+	h.logger.Infof("Handling MQTT message '%s' from /%v", packet.Name(), conn.RemoteAddr())
 
-	h.logger.Infof("Handling MQTT message '%s' from /%v", req.Name(), conn.RemoteAddr())
-
-	returnCode, err := h.loginUser(req)
+	returnCode, err := h.loginUser(username, password)
 	if err != nil {
 		h.logger.WithError(err).Warnf("Login failed from /%v failed", conn.RemoteAddr())
 		_ = conn.Close()
 		return
 	}
-	if req.KeepAliveSeconds > 0 {
-		conn.Properties().SetIdleTimeout(time.Duration(float64(req.KeepAliveSeconds)*1.5) * time.Second)
+	if keepAliveSeconds > 0 {
+		conn.Properties().SetIdleTimeout(time.Duration(float64(keepAliveSeconds)*1.5) * time.Second)
 	}
 	authenticated := returnCode == mqttproto.Accepted
 	conn.Properties().SetAuthenticated(authenticated)
 
-	res := mqtt311.NewControlPacket(mqttproto.CONNACK).(*mqtt311.ConnackPacket)
-	res.ReturnCode = returnCode
-
+	res, err := h.getConnectAck(packet, returnCode)
+	if err != nil {
+		h.logger.Error(err.Error())
+		_ = conn.Close()
+		return
+	}
 	err = res.Write(conn)
 	if err != nil {
 		h.logger.WithError(err).Errorf("Write 'CONNACK' failed")
@@ -79,17 +88,47 @@ func (h *MQTTHandler) handleConnect(conn mqttserver.Conn, packet mqttproto.Contr
 		h.metrics.responsesTotal.WithLabelValues(res.Name(), mqttproto.MqttProtocolVersionName(res.Version())).Inc()
 	}
 	if !authenticated {
-		h.logger.Infof("Disconnect unauthenticated user '%s' from /%v", req.Username, conn.RemoteAddr())
+		h.logger.Infof("Disconnect unauthenticated user '%s' from /%v", username, conn.RemoteAddr())
 		_ = conn.Close()
 		return
 	}
 }
 
-func (h *MQTTHandler) loginUser(packet *mqtt311.ConnectPacket) (byte, error) {
+func (h *MQTTHandler) getConnectData(packet mqttproto.ControlPacket) (username string, password string, keepAliveSeconds uint16, err error) {
+	switch req := packet.(type) {
+	case *mqtt311.ConnectPacket:
+		return req.Username, string(req.Password), req.KeepAliveSeconds, nil
+	case *mqtt5.ConnectPacket:
+		return req.Username, string(req.Password), req.KeepAliveSeconds, nil
+	default:
+		return "", "", 0, fmt.Errorf("unsupported connect packet type %v", reflect.TypeOf(packet))
+	}
+}
+
+func (h *MQTTHandler) getConnectAck(packet mqttproto.ControlPacket, returnCode byte) (mqttproto.ControlPacket, error) {
+	switch packet.(type) {
+	case *mqtt311.ConnectPacket:
+		res := mqtt311.NewControlPacket(mqttproto.CONNACK).(*mqtt311.ConnackPacket)
+		res.ReturnCode = returnCode
+		return res, nil
+	case *mqtt5.ConnectPacket:
+		res := mqtt5.NewControlPacket(mqttproto.CONNACK).(*mqtt5.ConnackPacket)
+		res.ReturnCode = returnCode
+		switch returnCode {
+		case mqttproto.RefusedBadUserNameOrPassword:
+			res.ReturnCode = mqttproto.RefusedV5BadUserNameOrPassword
+		}
+		return res, nil
+	default:
+		return nil, fmt.Errorf("unsupported connect packet type %v", reflect.TypeOf(packet))
+	}
+}
+
+func (h *MQTTHandler) loginUser(username, password string) (byte, error) {
 	if h.opts.authenticator != nil {
 		authResp, err := h.opts.authenticator.Login(context.Background(), &apis.UserPasswordAuthRequest{
-			Username: packet.Username,
-			Password: string(packet.Password),
+			Username: username,
+			Password: password,
 		})
 		if err != nil {
 			return 0, err
@@ -100,17 +139,20 @@ func (h *MQTTHandler) loginUser(packet *mqtt311.ConnectPacket) (byte, error) {
 }
 
 func (h *MQTTHandler) handlePublish(conn mqttserver.Conn, packet mqttproto.ControlPacket) {
-	req := packet.(*mqtt311.PublishPacket)
-
-	if h.disconnectUnauthenticated(conn, packet) {
+	publishRequest, err := h.getPublishRequest(packet)
+	if err != nil {
+		h.logger.Error(err.Error())
+		_ = conn.Close()
 		return
 	}
-
-	h.logger.Debugf("Handling MQTT message '%s' from /%v", req.Name(), conn.RemoteAddr())
+	if h.disconnectUnauthenticated(conn, packet.Name()) {
+		return
+	}
+	h.logger.Debugf("Handling MQTT message '%s' from /%v", packet.Name(), conn.RemoteAddr())
 
 	var publishCallback apis.PublishCallbackFunc
 
-	switch req.Qos {
+	switch publishRequest.Qos {
 	case mqttproto.AT_MOST_ONCE:
 		publishCallback = func(*apis.PublishRequest, *apis.PublishResponse) {
 			// nothing to send back, publishCallback can be used for metrics
@@ -121,9 +163,13 @@ func (h *MQTTHandler) handlePublish(conn mqttserver.Conn, packet mqttproto.Contr
 				//TODO: property if close connection unable to deliver ?
 				return
 			}
-			res := mqtt311.NewControlPacket(mqttproto.PUBACK).(*mqtt311.PubackPacket)
-			res.MessageID = request.MessageID
-			err := res.Write(conn)
+			res, err := h.getPublishAck(packet, request.MessageID)
+			if err != nil {
+				h.logger.Error(err.Error())
+				_ = conn.Close()
+				return
+			}
+			err = res.Write(conn)
 			if err != nil {
 				h.logger.WithError(err).Errorf("Write 'PUBACK' failed")
 			} else {
@@ -131,14 +177,18 @@ func (h *MQTTHandler) handlePublish(conn mqttserver.Conn, packet mqttproto.Contr
 			}
 		}
 	case mqttproto.EXACTLY_ONCE:
-		publishCallback = func(req *apis.PublishRequest, resp *apis.PublishResponse) {
-			if resp.Error != nil {
+		publishCallback = func(request *apis.PublishRequest, response *apis.PublishResponse) {
+			if response.Error != nil {
 				//TODO: property if close connection unable to deliver ?
 				return
 			}
-			res := mqtt311.NewControlPacket(mqttproto.PUBREC).(*mqtt311.PubrecPacket)
-			res.MessageID = req.MessageID
-			err := res.Write(conn)
+			res, err := h.getPublishRec(packet, request.MessageID)
+			if err != nil {
+				h.logger.Error(err.Error())
+				_ = conn.Close()
+				return
+			}
+			err = res.Write(conn)
 			if err != nil {
 				h.logger.WithError(err).Errorf("Write 'PUBREC' failed")
 			} else {
@@ -146,7 +196,7 @@ func (h *MQTTHandler) handlePublish(conn mqttserver.Conn, packet mqttproto.Contr
 			}
 		}
 	default:
-		h.logger.Warnf("'PUBLISH' with invalid QoS '%d'. Ignoring", req.Qos)
+		h.logger.Warnf("'PUBLISH' with invalid QoS '%d'. Ignoring", publishRequest.Qos)
 		return
 	}
 
@@ -156,9 +206,9 @@ func (h *MQTTHandler) handlePublish(conn mqttserver.Conn, packet mqttproto.Contr
 		ctx, cancel = context.WithTimeout(ctx, h.opts.publishTimeout)
 		defer cancel()
 	}
-	err := h.doPublish(ctx, h.publisher, req, publishCallback)
+	err = h.doPublish(ctx, h.publisher, publishRequest, publishCallback)
 	if err != nil {
-		if req.Qos == mqttproto.AT_MOST_ONCE {
+		if publishRequest.Qos == mqttproto.AT_MOST_ONCE {
 			h.logger.WithError(err).Warnf("Write 'PUBLISH' failed, ignoring ...")
 		} else {
 			h.logger.WithError(err).Errorf("Write 'PUBLISH' failed, closing the connection ...")
@@ -167,8 +217,39 @@ func (h *MQTTHandler) handlePublish(conn mqttserver.Conn, packet mqttproto.Contr
 	}
 }
 
-func (h *MQTTHandler) doPublish(ctx context.Context, publisher apis.Publisher, req *mqtt311.PublishPacket, publishCallback apis.PublishCallbackFunc) error {
-	publishRequest := newPublishRequest(req)
+func (h *MQTTHandler) getPublishAck(packet mqttproto.ControlPacket, messageID uint16) (mqttproto.ControlPacket, error) {
+	switch packet.(type) {
+	case *mqtt311.PublishPacket:
+		res := mqtt311.NewControlPacket(mqttproto.PUBACK).(*mqtt311.PubackPacket)
+		res.MessageID = messageID
+		return res, nil
+	case *mqtt5.PublishPacket:
+		res := mqtt5.NewControlPacket(mqttproto.PUBACK).(*mqtt5.PubackPacket)
+		res.MessageID = messageID
+		res.ReasonCode = 0
+		return res, nil
+	default:
+		return nil, fmt.Errorf("unsupported publish packet type %v", reflect.TypeOf(packet))
+	}
+}
+
+func (h *MQTTHandler) getPublishRec(packet mqttproto.ControlPacket, messageID uint16) (mqttproto.ControlPacket, error) {
+	switch packet.(type) {
+	case *mqtt311.PublishPacket:
+		res := mqtt311.NewControlPacket(mqttproto.PUBREC).(*mqtt311.PubrecPacket)
+		res.MessageID = messageID
+		return res, nil
+	case *mqtt5.PublishPacket:
+		res := mqtt5.NewControlPacket(mqttproto.PUBREC).(*mqtt5.PubrecPacket)
+		res.MessageID = messageID
+		res.ReasonCode = 0
+		return res, nil
+	default:
+		return nil, fmt.Errorf("unsupported publish packet type %v", reflect.TypeOf(packet))
+	}
+}
+
+func (h *MQTTHandler) doPublish(ctx context.Context, publisher apis.Publisher, publishRequest *apis.PublishRequest, publishCallback apis.PublishCallbackFunc) error {
 	if h.isPublishAsync(publishRequest.Qos) {
 		err := publisher.PublishAsync(ctx, publishRequest, publishCallback)
 		if err != nil {
@@ -184,7 +265,7 @@ func (h *MQTTHandler) doPublish(ctx context.Context, publisher apis.Publisher, r
 	return nil
 }
 
-func (h MQTTHandler) isPublishAsync(qos byte) bool {
+func (h *MQTTHandler) isPublishAsync(qos byte) bool {
 	switch qos {
 	case mqttproto.AT_MOST_ONCE:
 		return h.opts.publishAsyncAtMostOnce
@@ -196,42 +277,79 @@ func (h MQTTHandler) isPublishAsync(qos byte) bool {
 	return false
 }
 
-func newPublishRequest(req *mqtt311.PublishPacket) *apis.PublishRequest {
-	return &apis.PublishRequest{
-		Dup:       req.Dup,
-		Qos:       req.Qos,
-		Retain:    req.Retain,
-		TopicName: req.TopicName,
-		MessageID: req.MessageID,
-		Message:   req.Message,
+func (h *MQTTHandler) getPublishRequest(packet mqttproto.ControlPacket) (*apis.PublishRequest, error) {
+	switch req := packet.(type) {
+	case *mqtt311.PublishPacket:
+		return &apis.PublishRequest{
+			Dup:       req.Dup,
+			Qos:       req.Qos,
+			Retain:    req.Retain,
+			TopicName: req.TopicName,
+			MessageID: req.MessageID,
+			Message:   req.Message,
+		}, nil
+	case *mqtt5.PublishPacket:
+		return &apis.PublishRequest{
+			Dup:       req.Dup,
+			Qos:       req.Qos,
+			Retain:    req.Retain,
+			TopicName: req.TopicName,
+			MessageID: req.MessageID,
+			Message:   req.Message,
+		}, nil
+	default:
+		return nil, fmt.Errorf("unsupported publish packet type %v", reflect.TypeOf(packet))
 	}
 }
 
 func (h *MQTTHandler) handlePublishRelease(conn mqttserver.Conn, packet mqttproto.ControlPacket) {
-	req := packet.(*mqtt311.PubrelPacket)
-
-	if h.disconnectUnauthenticated(conn, packet) {
+	if h.disconnectUnauthenticated(conn, packet.Name()) {
 		return
 	}
-
-	h.logger.Debugf("Handling MQTT message '%s' from /%v", req.Name(), conn.RemoteAddr())
-	res := mqtt311.NewControlPacket(mqttproto.PUBCOMP).(*mqtt311.PubcompPacket)
-	res.MessageID = req.MessageID
-	err := res.Write(conn)
+	h.logger.Debugf("Handling MQTT message '%s' from /%v", packet.Name(), conn.RemoteAddr())
+	res, err := h.getPublishComp(packet)
+	if err != nil {
+		h.logger.Error(err.Error())
+		_ = conn.Close()
+		return
+	}
+	err = res.Write(conn)
 	if err != nil {
 		h.logger.WithError(err).Errorf("Write 'PUBCOMP' failed")
 	}
 }
 
-func (h *MQTTHandler) handlePing(conn mqttserver.Conn, packet mqttproto.ControlPacket) {
-	req := packet.(*mqtt311.PingreqPacket)
+func (h *MQTTHandler) getPublishComp(packet mqttproto.ControlPacket) (mqttproto.ControlPacket, error) {
+	switch req := packet.(type) {
+	case *mqtt311.PubrelPacket:
+		res := mqtt311.NewControlPacket(mqttproto.PUBCOMP).(*mqtt311.PubcompPacket)
+		res.MessageID = req.MessageID
+		return res, nil
+	case *mqtt5.PubrelPacket:
+		res := mqtt5.NewControlPacket(mqttproto.PUBCOMP).(*mqtt5.PubcompPacket)
+		res.MessageID = req.MessageID
+		res.ReasonCode = 0
+		return res, nil
+	default:
+		return nil, fmt.Errorf("unsupported pubrel packet type %v", reflect.TypeOf(packet))
+	}
+}
 
-	if h.disconnectUnauthenticated(conn, packet) {
+func (h *MQTTHandler) handlePing(conn mqttserver.Conn, packet mqttproto.ControlPacket) {
+	if h.disconnectUnauthenticated(conn, packet.Name()) {
 		return
 	}
-
-	h.logger.Debugf("Handling MQTT message '%s' from /%v", req.Name(), conn.RemoteAddr())
-	res := mqtt311.NewControlPacket(mqttproto.PINGRESP)
+	h.logger.Debugf("Handling MQTT message '%s' from /%v", packet.Name(), conn.RemoteAddr())
+	var res mqttproto.ControlPacket
+	switch packet.(type) {
+	case *mqtt311.PingreqPacket:
+		res = mqtt311.NewControlPacket(mqttproto.PINGRESP)
+	case *mqtt5.PingreqPacket:
+		res = mqtt5.NewControlPacket(mqttproto.PINGRESP)
+	default:
+		h.logger.Warnf("Unsupported disconnect ping type %v", reflect.TypeOf(packet))
+		return
+	}
 	err := res.Write(conn)
 	if err != nil {
 		h.logger.WithError(err).Errorf("Write 'PINGRESP' failed")
@@ -239,8 +357,13 @@ func (h *MQTTHandler) handlePing(conn mqttserver.Conn, packet mqttproto.ControlP
 }
 
 func (h *MQTTHandler) handleDisconnect(conn mqttserver.Conn, packet mqttproto.ControlPacket) {
-	req := packet.(*mqtt311.DisconnectPacket)
-	h.logger.Infof("Handling MQTT message '%s' from /%v", req.Name(), conn.RemoteAddr())
+	switch packet.(type) {
+	case *mqtt311.DisconnectPacket:
+	case *mqtt5.DisconnectPacket:
+	default:
+		h.logger.Warnf("Unsupported disconnect packet type %v", reflect.TypeOf(packet))
+	}
+	h.logger.Infof("Handling MQTT message '%s' from /%v", packet.Name(), conn.RemoteAddr())
 	err := conn.Close()
 	if err != nil {
 		h.logger.WithError(err).Warnf("Closing connection on 'DISCONNECT' failed")

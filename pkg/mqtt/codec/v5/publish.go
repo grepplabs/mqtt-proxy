@@ -1,4 +1,4 @@
-package v311
+package v5
 
 import (
 	"bytes"
@@ -10,9 +10,10 @@ import (
 
 type PublishPacket struct {
 	mqttproto.FixedHeader
-	TopicName string
-	MessageID uint16
-	Message   []byte
+	TopicName         string
+	MessageID         uint16
+	PublishProperties Properties
+	Message           []byte
 }
 
 func (p *PublishPacket) Type() byte {
@@ -20,7 +21,7 @@ func (p *PublishPacket) Type() byte {
 }
 
 func (p *PublishPacket) Version() byte {
-	return mqttproto.MQTT_3_1_1
+	return mqttproto.MQTT_5
 }
 
 func (c *PublishPacket) Name() string {
@@ -38,6 +39,7 @@ func (p *PublishPacket) Write(w io.Writer) (err error) {
 	if p.Qos > 0 {
 		body.Write(mqttproto.EncodeUint16(p.MessageID))
 	}
+	body.Write(p.PublishProperties.Encode())
 
 	p.FixedHeader.RemainingLength = body.Len() + len(p.Message)
 	packet := p.FixedHeader.Pack()
@@ -60,6 +62,10 @@ func (p *PublishPacket) Unpack(r io.Reader) (err error) {
 		if err != nil {
 			return err
 		}
+	}
+	err = p.PublishProperties.Unpack(cr)
+	if err != nil {
+		return err
 	}
 	payloadLength -= cr.BytesRead
 	if payloadLength < 0 {

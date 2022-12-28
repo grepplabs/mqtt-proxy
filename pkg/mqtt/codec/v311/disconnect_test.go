@@ -15,6 +15,7 @@ func TestNewDisconnectPacket(t *testing.T) {
 	packet := NewControlPacket(mqttproto.DISCONNECT).(*DisconnectPacket)
 	a.Equal(mqttproto.DISCONNECT, packet.MessageType)
 	a.Equal(mqttproto.MqttMessageTypeNames[packet.MessageType], packet.Name())
+	a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
 	t.Log(packet)
 }
 
@@ -52,6 +53,7 @@ func TestDisconnectPacketCodec(t *testing.T) {
 			}
 			packet := decoded.(*DisconnectPacket)
 			a.Equal(*tc.packet, *packet)
+			a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
 
 			// encode
 			var output bytes.Buffer

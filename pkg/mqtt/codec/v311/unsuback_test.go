@@ -15,6 +15,7 @@ func TestNewUnsubackPacket(t *testing.T) {
 	packet := NewControlPacket(mqttproto.UNSUBACK).(*UnsubackPacket)
 	a.Equal(mqttproto.UNSUBACK, packet.MessageType)
 	a.Equal(mqttproto.MqttMessageTypeNames[packet.MessageType], packet.Name())
+	a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
 	t.Log(packet)
 }
 
@@ -64,6 +65,7 @@ func TestUnsubackPacketCodec(t *testing.T) {
 			}
 			packet := decoded.(*UnsubackPacket)
 			a.Equal(*tc.packet, *packet)
+			a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
 
 			// encode
 			var output bytes.Buffer

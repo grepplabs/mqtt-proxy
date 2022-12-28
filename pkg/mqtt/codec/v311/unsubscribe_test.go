@@ -15,6 +15,7 @@ func TestNewUnsubscribePacket(t *testing.T) {
 	packet := NewControlPacket(mqttproto.UNSUBSCRIBE).(*UnsubscribePacket)
 	a.Equal(mqttproto.UNSUBSCRIBE, packet.MessageType)
 	a.Equal(mqttproto.MqttMessageTypeNames[packet.MessageType], packet.Name())
+	a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
 	t.Log(packet)
 }
 
@@ -65,6 +66,7 @@ func TestUnsubscribePacketCodec(t *testing.T) {
 			}
 			packet := decoded.(*UnsubscribePacket)
 			a.Equal(*tc.packet, *packet)
+			a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
 
 			// encode
 			var output bytes.Buffer

@@ -7,6 +7,7 @@ import (
 
 	mqttproto "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec/proto"
 	mqtt311 "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec/v311"
+	mqtt5 "github.com/grepplabs/mqtt-proxy/pkg/mqtt/codec/v5"
 )
 
 func ReadPacket(r io.Reader, protocolVersion byte) (mqttproto.ControlPacket, error) {
@@ -26,7 +27,7 @@ func ReadPacket(r io.Reader, protocolVersion byte) (mqttproto.ControlPacket, err
 	case mqttproto.MQTT_3_1_1:
 		return mqtt311.ReadPacket(r)
 	case mqttproto.MQTT_5:
-		return nil, mqtt311.NewConnAckError(mqttproto.RefusedUnacceptableProtocolVersion, "mqtt5 is not supported yet")
+		return mqtt5.ReadPacket(r)
 	default:
 		return nil, mqtt311.NewConnAckError(mqttproto.RefusedUnacceptableProtocolVersion, fmt.Sprintf("unsupported protocol version %v", protocolVersion))
 	}

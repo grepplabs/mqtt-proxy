@@ -15,6 +15,7 @@ func TestNewPublishPacket(t *testing.T) {
 	packet := NewControlPacket(mqttproto.PUBLISH).(*PublishPacket)
 	a.Equal(mqttproto.PUBLISH, packet.MessageType)
 	a.Equal(mqttproto.MqttMessageTypeNames[packet.MessageType], packet.Name())
+	a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
 	t.Log(packet)
 }
 
@@ -124,6 +125,7 @@ func TestPublishPacketCodec(t *testing.T) {
 			}
 			packet := decoded.(*PublishPacket)
 			a.Equal(*tc.packet, *packet)
+			a.Equal(mqttproto.MQTT_3_1_1, packet.Version())
 
 			// encode
 			var output bytes.Buffer
