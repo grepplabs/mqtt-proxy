@@ -1,10 +1,16 @@
 terraform {
-  required_version = ">= 0.12.18"
+  required_version = ">= 1"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 4.56"
+    }
+  }
 }
 
 provider "aws" {
-  region = var.region
-  version = ">= 2.45.0"
+  region  = var.region
 }
 
 data "aws_caller_identity" "current" {}
@@ -15,19 +21,21 @@ data "aws_availability_zones" "available" {}
 
 data "aws_vpc" "vpc" {
   filter {
-    name = "tag:Name"
+    name   = "tag:Name"
     values = [
       "default"
     ]
   }
 }
 
-data "aws_subnet_ids" "subnets" {
-  vpc_id = data.aws_vpc.vpc.id
+data "aws_subnets" "subnets" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.vpc.id]
+  }
 }
 
-
 data "aws_subnet" "subnets" {
-  count = length(data.aws_subnet_ids.subnets.ids)
-  id    = tolist(data.aws_subnet_ids.subnets.ids)[count.index]
+  for_each = toset(data.aws_subnets.subnets.ids)
+  id       = each.value
 }

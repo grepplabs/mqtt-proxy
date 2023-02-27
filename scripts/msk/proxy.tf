@@ -11,22 +11,27 @@ data "template_file" "mqtt-proxy-init" {
 
 resource "aws_instance" "mqtt-proxy" {
   count                  = var.mqtt_proxy_enable ? 1 : 0
-  ami                    = data.aws_ami.ubuntu-focal.id
+  ami                    = data.aws_ami.ubuntu.id
   instance_type          = var.mqtt_proxy_ec2_instance_type
-  subnet_id              = data.aws_subnet.subnets.0.id
+  subnet_id              = [for subnet in data.aws_subnet.subnets : subnet.id][0]
   iam_instance_profile   = aws_iam_instance_profile.mqtt-proxy-profile.id
   vpc_security_group_ids = [aws_security_group.mqtt-proxy-security-group.id]
   key_name               = aws_key_pair.mqtt-proxy-key-pair.key_name
   user_data              = data.template_file.mqtt-proxy-init.rendered
 }
 
-data "aws_ami" "ubuntu-focal" {
+output "mqtt_proxy_ip" {
+  value = var.mqtt_proxy_enable ? aws_instance.mqtt-proxy.0.public_ip : ""
+}
+
+
+data "aws_ami" "ubuntu" {
   most_recent = true
 
   filter {
     name = "name"
     values = [
-      "*ubuntu-focal-*"]
+      "*ubuntu-jammy-*"]
   }
   filter {
     name = "architecture"
@@ -116,8 +121,4 @@ resource "aws_security_group" "mqtt-proxy-security-group" {
     cidr_blocks = [
       "0.0.0.0/0"]
   }
-}
-
-output "mqtt_proxy_ip" {
-  value = var.mqtt_proxy_enable ? aws_instance.mqtt-proxy.0.public_ip : ""
 }

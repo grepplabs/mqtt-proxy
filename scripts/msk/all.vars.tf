@@ -1,5 +1,5 @@
 variable "region" {
-  type = string
+  type    = string
   default = "eu-central-1"
 }
 
@@ -16,7 +16,7 @@ variable "mqtt_proxy_ec2_instance_type" {
 }
 
 variable "mqtt_proxy_enable" {
-  type = bool
+  type    = bool
   default = true
 }
 
@@ -25,12 +25,12 @@ variable "kafka_proxy_version" {
 }
 
 variable "kafka_version" {
-  type = string
-  default = "2.4.1"
+  type    = string
+  default = "2.8.1"
 }
 
 variable "kafka_number_of_broker_nodes" {
-  type = number
+  type    = number
   default = 3
 }
 
@@ -40,4 +40,19 @@ variable "kafka_broker_instance_type" {
 
 variable "kafka_broker_ebs_volume_size" {
   type = number
+}
+
+variable "sasl_iam_enable" {
+  type    = bool
+  default = false
+}
+
+variable "public_access" {
+  type    = bool
+  default = false
+}
+
+variable "encryption_client_broker" {
+  type = string
+  default = "TLS_PLAINTEXT"
 }

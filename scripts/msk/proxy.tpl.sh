@@ -34,7 +34,7 @@ spec:
     - name: HOSTNAME
     - name: container
       value: mqtt-proxy
-    image: docker.io/grepplabs/mqtt-proxy:latest
+    image: docker.io/grepplabs/mqtt-proxy:${mqtt_proxy_version}
     name: mqtt-proxy
     ports:
     - containerPort: 9090
@@ -55,7 +55,7 @@ spec:
     - name: HOSTNAME
     - name: container
       value: mqtt-proxy-tls
-    image: docker.io/grepplabs/mqtt-proxy:latest
+    image: docker.io/grepplabs/mqtt-proxy:${mqtt_proxy_version}
     name: mqtt-proxy-tls
     ports:
     - containerPort: 9091
