@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/grepplabs/mqtt-proxy/apis"
 	"github.com/grepplabs/mqtt-proxy/pkg/log"
 	"github.com/grepplabs/mqtt-proxy/pkg/runtime"
@@ -117,7 +117,7 @@ func (s *Publisher) Shutdown(err error) {
 }
 
 func (s *Publisher) shutdown(ctx context.Context) error {
-	if !s.inShutdown.CAS(false, true) {
+	if !s.inShutdown.CompareAndSwap(false, true) {
 		return nil
 	}
 	defer s.Close()
@@ -139,7 +139,7 @@ func (s *Publisher) shutdown(ctx context.Context) error {
 	}
 }
 
-func (s Publisher) Name() string {
+func (s *Publisher) Name() string {
 	return publisherName
 }
 

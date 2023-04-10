@@ -28,13 +28,13 @@ func New(logger log.Logger, _ *prometheus.Registry) *Publisher {
 	}
 }
 
-func (s Publisher) Name() string {
+func (s *Publisher) Name() string {
 	return publisherName
 }
 
 func (p *Publisher) Publish(_ context.Context, request *apis.PublishRequest) (*apis.PublishResponse, error) {
 	if request == nil {
-		return nil, errors.New("Empty request")
+		return nil, errors.New("empty request")
 	}
 
 	p.logger.Debugf("sync publish: messageID=%v", request.MessageID)
@@ -46,7 +46,7 @@ func (p *Publisher) Publish(_ context.Context, request *apis.PublishRequest) (*a
 
 func (p *Publisher) PublishAsync(_ context.Context, request *apis.PublishRequest, callback apis.PublishCallbackFunc) error {
 	if request == nil || callback == nil {
-		return errors.New("Empty request/callback")
+		return errors.New("empty request/callback")
 	}
 
 	p.logger.Debugf("async publish: messageID=%v", request.MessageID)

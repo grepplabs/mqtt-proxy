@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"github.com/alecthomas/kong"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/grepplabs/mqtt-proxy/pkg/config"
 	"github.com/grepplabs/mqtt-proxy/pkg/log"
 	"github.com/stretchr/testify/require"

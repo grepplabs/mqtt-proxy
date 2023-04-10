@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/go-playground/validator/v10"
 )
 

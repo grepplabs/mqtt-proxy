@@ -2,7 +2,7 @@
 
 .PHONY: clean build fmt test
 
-TAG           ?= v0.2.0
+TAG           ?= v0.3.0
 
 BUILD_FLAGS   ?=
 BINARY        ?= mqtt-proxy
