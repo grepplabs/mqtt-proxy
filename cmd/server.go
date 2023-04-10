@@ -3,6 +3,7 @@ package cmd
 import (
 	"crypto/tls"
 	"fmt"
+	"runtime"
 
 	"github.com/grepplabs/mqtt-proxy/apis"
 	authinst "github.com/grepplabs/mqtt-proxy/pkg/auth/instrument"
@@ -32,7 +33,7 @@ func runServer(
 	registry *prometheus.Registry,
 	cfg *config.Server,
 ) error {
-	logger.WithField("version", version.Version).WithField("branch", version.Branch).WithField("revision", version.Revision).Infof("starting mqtt-proxy")
+	logger.WithField("version", version.Version).WithField("branch", version.Branch).WithField("revision", version.Revision).Infof("starting mqtt-proxy on %s/%s", runtime.GOOS, runtime.GOARCH)
 
 	err := cfg.Validate()
 	if err != nil {

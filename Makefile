@@ -62,7 +62,7 @@ os-build:
 
 .PHONY: docker-build
 docker-build:
-	docker buildx build --build-arg BUILDPLATFORM=$(BUILDPLATFORM) --build-arg TARGETARCH=$(GOARCH) -f Dockerfile -t $(LOCAL_IMAGE) .
+	docker buildx build --platform $(BUILDPLATFORM) --build-arg TARGETARCH=$(GOARCH) --build-arg TARGETOS=$(GOOS) -f Dockerfile -t $(LOCAL_IMAGE) .
 
 .PHONY: docker-push
 docker-push:
