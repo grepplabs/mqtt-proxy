@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/alecthomas/kong v0.7.0
 	github.com/alecthomas/kong-yaml v0.1.1
-	github.com/confluentinc/confluent-kafka-go/v2 v2.1.0
+	github.com/confluentinc/confluent-kafka-go/v2 v2.0.2
 	github.com/go-playground/validator/v10 v10.11.1
 	github.com/oklog/run v1.1.0
 	github.com/prometheus/client_golang v1.13.1

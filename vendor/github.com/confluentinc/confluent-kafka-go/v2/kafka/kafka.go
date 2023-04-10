@@ -17,7 +17,8 @@
 // Package kafka provides high-level Apache Kafka producer and consumers
 // using bindings on-top of the librdkafka C library.
 //
-// # High-level Consumer
+//
+// High-level Consumer
 //
 // * Decide if you want to read messages and events by calling `.Poll()` or
 // the deprecated option of using the `.Events()` channel. (If you want to use
@@ -60,7 +61,9 @@
 // * When you are done consuming call `.Close()` to commit final offsets
 // and leave the consumer group.
 //
-// # Producer
+//
+//
+// Producer
 //
 // * Create a Producer with `kafka.NewProducer()` providing at least
 // the `bootstrap.servers` configuration properties.
@@ -89,7 +92,8 @@
 //
 // * Finally call `.Close()` to decommission the producer.
 //
-// # Transactional producer API
+//
+// Transactional producer API
 //
 // The transactional producer operates on top of the idempotent producer,
 // and provides full exactly-once semantics (EOS) for Apache Kafka when used
@@ -181,27 +185,27 @@
 // neither the retriable or abortable flags set, as fatal.
 //
 // Error handling example:
+//     retry:
 //
-//	retry:
+//        err := producer.CommitTransaction(...)
+//        if err == nil {
+//            return nil
+//        } else if err.(kafka.Error).TxnRequiresAbort() {
+//            do_abort_transaction_and_reset_inputs()
+//        } else if err.(kafka.Error).IsRetriable() {
+//            goto retry
+//        } else { // treat all other errors as fatal errors
+//            panic(err)
+//        }
 //
-//	   err := producer.CommitTransaction(...)
-//	   if err == nil {
-//	       return nil
-//	   } else if err.(kafka.Error).TxnRequiresAbort() {
-//	       do_abort_transaction_and_reset_inputs()
-//	   } else if err.(kafka.Error).IsRetriable() {
-//	       goto retry
-//	   } else { // treat all other errors as fatal errors
-//	       panic(err)
-//	   }
 //
-// # Events
+// Events
 //
 // Apart from emitting messages and delivery reports the client also communicates
 // with the application through a number of different event types.
 // An application may choose to handle or ignore these events.
 //
-// # Consumer events
+// Consumer events
 //
 // * `*kafka.Message` - a fetched message.
 //
@@ -217,12 +221,14 @@
 //
 // * `OffsetsCommitted` - Offset commit results (when `enable.auto.commit` is enabled).
 //
-// # Producer events
+//
+// Producer events
 //
 // * `*kafka.Message` - delivery report for produced message.
 // Check `.TopicPartition.Error` for delivery result.
 //
-// # Generic events for both Consumer and Producer
+//
+// Generic events for both Consumer and Producer
 //
 // * `KafkaError` - client (error codes are prefixed with _) or broker error.
 // These errors are normally just informational since the
@@ -236,6 +242,7 @@
 // if setting the token failed, which could happen if an extension doesn't meet
 // the required regular expression); invoking SetOAuthBearerTokenFailure() will
 // schedule a new event for 10 seconds later so another retrieval can be attempted.
+//
 //
 // Hint: If your application registers a signal notification
 // (signal.Notify) makes sure the signals channel is buffered to avoid
@@ -276,12 +283,11 @@ const PartitionAny = int32(C.RD_KAFKA_PARTITION_UA)
 
 // TopicPartition is a generic placeholder for a Topic+Partition and optionally Offset.
 type TopicPartition struct {
-	Topic       *string
-	Partition   int32
-	Offset      Offset
-	Metadata    *string
-	Error       error
-	LeaderEpoch *int32
+	Topic     *string
+	Partition int32
+	Offset    Offset
+	Metadata  *string
+	Error     error
 }
 
 func (p TopicPartition) String() string {
@@ -365,11 +371,6 @@ func newCPartsFromTopicPartitions(partitions []TopicPartition) (cparts *C.rd_kaf
 			rktpar.metadata = unsafe.Pointer(cmetadata)
 			rktpar.metadata_size = C.size_t(len(*part.Metadata))
 		}
-
-		if part.LeaderEpoch != nil {
-			cLeaderEpoch := C.int32_t(*part.LeaderEpoch)
-			C.rd_kafka_topic_partition_set_leader_epoch(rktpar, cLeaderEpoch)
-		}
 	}
 
 	return cparts
@@ -389,11 +390,6 @@ func setupTopicPartitionFromCrktpar(partition *TopicPartition, crktpar *C.rd_kaf
 	}
 	if crktpar.err != C.RD_KAFKA_RESP_ERR_NO_ERROR {
 		partition.Error = newError(crktpar.err)
-	}
-
-	cLeaderEpoch := int32(C.rd_kafka_topic_partition_get_leader_epoch(crktpar))
-	if cLeaderEpoch >= 0 {
-		partition.LeaderEpoch = &cLeaderEpoch
 	}
 }
 

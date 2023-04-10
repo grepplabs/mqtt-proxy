@@ -23,6 +23,7 @@ import (
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/common/version"
 )
 
 func runServer(
@@ -31,6 +32,7 @@ func runServer(
 	registry *prometheus.Registry,
 	cfg *config.Server,
 ) error {
+	logger.WithField("version", version.Version).WithField("branch", version.Branch).WithField("revision", version.Revision).Infof("starting mqtt-proxy")
 
 	err := cfg.Validate()
 	if err != nil {

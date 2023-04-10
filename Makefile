@@ -16,8 +16,9 @@ LDFLAGS       ?= -w -s \
 				 -X github.com/prometheus/common/version.BuildUser=$$USER \
 				 -X github.com/prometheus/common/version.BuildDate=${BUILD_DATE}
 
-GOARCH        ?= amd64
-GOOS          ?= linux
+GOOS          ?= $(if $(TARGETOS),$(TARGETOS),linux)
+GOARCH        ?= $(if $(TARGETARCH),$(TARGETARCH),amd64)
+BUILDPLATFORM ?= $(GOOS)/$(GOARCH)
 
 LOCAL_IMAGE   ?= local/$(BINARY)
 CLOUD_IMAGE   ?= grepplabs/mqtt-proxy:$(TAG)
@@ -61,11 +62,11 @@ os-build:
 
 .PHONY: docker-build
 docker-build:
-	docker build -f Dockerfile -t $(LOCAL_IMAGE) .
+	docker buildx build --build-arg BUILDPLATFORM=$(BUILDPLATFORM) --build-arg TARGETARCH=$(GOARCH) -f Dockerfile -t $(LOCAL_IMAGE) .
 
 .PHONY: docker-push
 docker-push:
-	docker build -f Dockerfile -t $(LOCAL_IMAGE) .
+	docker buildx build --build-arg BUILDPLATFORM=$(BUILDPLATFORM) --build-arg TARGETARCH=$(GOARCH) -t $(LOCAL_IMAGE) .
 	docker tag $(LOCAL_IMAGE) $(CLOUD_IMAGE)
 	docker push $(CLOUD_IMAGE)
 
