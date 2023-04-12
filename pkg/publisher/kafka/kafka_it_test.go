@@ -3,6 +3,7 @@ package kafka
 import (
 	"context"
 	"github.com/grepplabs/mqtt-proxy/apis"
+	"github.com/grepplabs/mqtt-proxy/pkg/config"
 	"github.com/oklog/run"
 	"os"
 	"testing"
@@ -30,7 +31,8 @@ func newTestPublisherOrExit() *Publisher {
 		WithBootstrapServers(bootstrapServers),
 		WithGracePeriod(60*time.Second),
 		WithConfigMap(defaultConfig),
-		WithDefaultTopic("mqtt-test"))
+		WithDefaultTopic("mqtt-test"),
+		WithMessageFormat(config.MessageFormatPlain))
 
 	if err != nil {
 		logger.WithError(err).Errorf("kafka publisher creation failed")

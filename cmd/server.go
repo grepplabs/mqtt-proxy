@@ -16,6 +16,7 @@ import (
 	pubinst "github.com/grepplabs/mqtt-proxy/pkg/publisher/instrument"
 	pubkafka "github.com/grepplabs/mqtt-proxy/pkg/publisher/kafka"
 	pubnoop "github.com/grepplabs/mqtt-proxy/pkg/publisher/noop"
+	pubsqs "github.com/grepplabs/mqtt-proxy/pkg/publisher/sqs"
 	httpserver "github.com/grepplabs/mqtt-proxy/pkg/server/http"
 	mqttserver "github.com/grepplabs/mqtt-proxy/pkg/server/mqtt"
 	servertls "github.com/grepplabs/mqtt-proxy/pkg/tls"
@@ -102,9 +103,21 @@ func runServer(
 				pubkafka.WithConfigMap(cfg.MQTT.Publisher.Kafka.ConfArgs.ConfigMap()),
 				pubkafka.WithGracePeriod(cfg.MQTT.Publisher.Kafka.GracePeriod),
 				pubkafka.WithWorkers(cfg.MQTT.Publisher.Kafka.Workers),
+				pubkafka.WithMessageFormat(cfg.MQTT.Publisher.MessageFormat),
 			)
 			if err != nil {
 				return fmt.Errorf("setup kafka publisher: %w", err)
+			}
+		case config.PublisherSQS:
+			publisher, err = pubsqs.New(logger, registry,
+				pubsqs.WithAWSProfile(cfg.MQTT.Publisher.SQS.AWSProfile),
+				pubsqs.WithAWSRegion(cfg.MQTT.Publisher.SQS.AWSRegion),
+				pubsqs.WithQueueMappings(cfg.MQTT.Publisher.SQS.QueueMappings),
+				pubsqs.WithDefaultQueue(cfg.MQTT.Publisher.SQS.DefaultQueue),
+				pubsqs.WithMessageFormat(cfg.MQTT.Publisher.MessageFormat),
+			)
+			if err != nil {
+				return fmt.Errorf("setup sqs publisher: %w", err)
 			}
 		default:
 			return fmt.Errorf("unknown publisher %s", cfg.MQTT.Publisher.Name)

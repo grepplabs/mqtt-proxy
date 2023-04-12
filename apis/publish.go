@@ -7,12 +7,12 @@ import "context"
 type PublishID interface{}
 
 type PublishRequest struct {
-	Dup       bool
-	Qos       byte
-	Retain    bool
-	TopicName string
-	MessageID uint16
-	Message   []byte
+	Dup       bool   `json:"dup"`
+	Qos       byte   `json:"qos"`
+	Retain    bool   `json:"retain"`
+	TopicName string `json:"topic_name"`
+	MessageID uint16 `json:"packet_id"`
+	Message   []byte `json:"payload"`
 }
 
 type PublishResponse struct {

@@ -18,6 +18,9 @@ MQTT Proxy allows MQTT clients to send messages to other messaging systems
 * Publisher
     * [x] Noop
     * [x] [Apache Kafka](https://kafka.apache.org/)
+    * [x] [Amazon SQS](https://aws.amazon.com/sqs/)
+    * [ ] [Amazon SNS](https://aws.amazon.com/sns/)
+    * [ ] [Amazon Kinesis](https://aws.amazon.com/kinesis/)
     * [ ] Others
 * Authentication
     * [x] Noop
@@ -113,8 +116,6 @@ prerequisites
     watch -c 'curl -s localhost:9090/metrics | grep mqtt | egrep -v '^#''
     ```
 
-5. see also [cp-kafka](scripts/cp-kafka/Makefile) with SASL_PLAINTEXT and SASL_SSL configuration
-
 ### publish to Amazon MSK
 
 1. provision test MSK and EC2 running in [podman](https://podman.io/) 2 proxy containers
@@ -136,6 +137,27 @@ prerequisites
     * container connects to MSK TLS listener
     ```
     mosquitto_pub -m "on" -t "dummy" -k 20 -i mqtt-proxy.clientv --repeat 1 -q 1 -h <ec2-ip> -p 1884
+    ```
+
+### SQS publisher
+
+1. Create AWS SQS `test1` and `test2.fifo` queues
+2. Build and start MQTT Proxy
+
+    ```
+    make build
+   ./mqtt-proxy server \
+      --mqtt.publisher.name=sqs \
+      --mqtt.publisher.message-format=json \
+      --mqtt.publisher.sqs.queue-mappings=test1='^dummy$' \
+      --mqtt.publisher.sqs.default-queue=test2.fifo \
+      --mqtt.publisher.sqs.aws-profile=admin-dev
+    ```
+
+3. publish
+
+    ```
+    mosquitto_pub -L mqtt://localhost:1883/dummy -m "test qos 0" --repeat 1 -q 2
     ```
 
 ### plain authenticator

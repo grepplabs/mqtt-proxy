@@ -15,12 +15,20 @@ import (
 const (
 	PublisherNoop  = "noop"
 	PublisherKafka = "kafka"
+	PublisherSQS   = "sqs"
 )
 
 // authenticator names
 const (
 	AuthNoop  = "noop"
 	AuthPlain = "plain"
+)
+
+// message format
+const (
+	MessageFormatPlain  = "plain"
+	MessageFormatBase64 = "base64"
+	MessageFormatJson   = "json"
 )
 
 // server certificate source
@@ -72,8 +80,9 @@ type Server struct {
 			} `embed:"" prefix:"auth."`
 		} `embed:"" prefix:"handler."`
 		Publisher struct {
-			Name  string `default:"${PublisherDefault}" enum:"${PublisherEnum}" help:"Publisher name. One of: [${PublisherEnum}]"`
-			Kafka struct {
+			Name          string `default:"${PublisherDefault}" enum:"${PublisherEnum}" help:"Publisher name. One of: [${PublisherEnum}]"`
+			MessageFormat string `default:"${MessageFormatDefault}" enum:"${MessageFormatEnum}" help:"Message format. One of: [${MessageFormatEnum}]"`
+			Kafka         struct {
 				BootstrapServers string          `default:"localhost:9092" help:"Kafka bootstrap servers."`
 				GracePeriod      time.Duration   `default:"10s" help:"Time to wait after an interrupt received for Kafka publisher." validate:"gte=0"`
 				ConfArgs         KafkaConfigArgs `name:"config" placeholder:"PROP=VAL" help:"Comma separated list of properties."`
@@ -81,6 +90,12 @@ type Server struct {
 				TopicMappings    TopicMappings   `placeholder:"TOPIC=REGEX" help:"Comma separated list of Kafka topic to MQTT topic mappings."`
 				Workers          int             `default:"1" help:"Number of kafka publisher workers." validate:"gte=1"`
 			} `embed:"" prefix:"kafka."`
+			SQS struct {
+				AWSProfile    string        `default:"" help:"AWS Profile."`
+				AWSRegion     string        `default:"" help:"AWS Region."`
+				DefaultQueue  string        `default:"" help:"Default Kafka topic for MQTT publish messages."`
+				QueueMappings TopicMappings `placeholder:"QUEUE=REGEX" help:"Comma separated list of SQS queue to MQTT topic mappings."`
+			} `embed:"" prefix:"sqs."`
 		} `embed:"" prefix:"publisher."`
 	} `embed:"" prefix:"mqtt."`
 }
@@ -94,7 +109,9 @@ func ServerVars() kong.Vars {
 		"AuthDefault":              AuthNoop,
 		"AuthEnum":                 strings.Join([]string{AuthNoop, AuthPlain}, ", "),
 		"PublisherDefault":         PublisherNoop,
-		"PublisherEnum":            strings.Join([]string{PublisherNoop, PublisherKafka}, ", "),
+		"PublisherEnum":            strings.Join([]string{PublisherNoop, PublisherKafka, PublisherSQS}, ", "),
+		"MessageFormatDefault":     MessageFormatPlain,
+		"MessageFormatEnum":        strings.Join([]string{MessageFormatPlain, MessageFormatBase64, MessageFormatJson}, ", "),
 	}
 }
 

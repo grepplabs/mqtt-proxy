@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/grepplabs/mqtt-proxy/pkg/util"
 	"reflect"
 	"strconv"
 	"strings"
@@ -25,6 +26,7 @@ const (
 	mqttDupHeader    = "mqtt.dup"
 	mqttRetainHeader = "mqtt.retain"
 	mqttMsgIDHeader  = "mqtt.packet.id"
+	mqttMsgFmtHeader = "mqtt.fmt"
 )
 const (
 	shutdownPollInterval = 500 * time.Millisecond
@@ -44,15 +46,11 @@ func (k *kafkaProducer) Close() {
 }
 
 type Publisher struct {
-	logger log.Logger
-
-	producers map[byte]*kafkaProducer
-
-	inShutdown atomic.Bool
-
+	logger      log.Logger
+	producers   map[byte]*kafkaProducer
+	inShutdown  atomic.Bool
 	workersDone *runtime.DoneChannel
-
-	opts options
+	opts        options
 }
 
 func New(logger log.Logger, _ *prometheus.Registry, opts ...Option) (*Publisher, error) {
@@ -236,11 +234,18 @@ func (s *Publisher) newKafkaMessage(req *apis.PublishRequest, opaque interface{}
 		{Key: mqttDupHeader, Value: []byte(strconv.FormatBool(req.Dup))},
 		{Key: mqttRetainHeader, Value: []byte(strconv.FormatBool(req.Retain))},
 		{Key: mqttMsgIDHeader, Value: []byte(strconv.FormatUint(uint64(req.MessageID), 10))},
+		{Key: mqttMsgFmtHeader, Value: []byte(s.opts.messageFormat)},
 	}
+
+	message, err := util.GetMessageBody(s.opts.messageFormat, req)
+	if err != nil {
+		return nil, err
+	}
+
 	return &kafka.Message{
 		TopicPartition: kafka.TopicPartition{Topic: &kafkaTopic, Partition: kafka.PartitionAny},
 		Key:            []byte(req.TopicName),
-		Value:          req.Message,
+		Value:          message,
 		Opaque:         opaque,
 		Headers:        headers,
 	}, nil
@@ -255,7 +260,7 @@ func (s *Publisher) getKafkaTopic(mqttTopic string) (string, error) {
 	if s.opts.defaultTopic != "" {
 		return s.opts.defaultTopic, nil
 	}
-	return "", fmt.Errorf("Kafka topic not found for MQTT topic %s", mqttTopic)
+	return "", fmt.Errorf("kafka topic not found for MQTT topic %s", mqttTopic)
 }
 
 func (s *Publisher) Publish(ctx context.Context, request *apis.PublishRequest) (*apis.PublishResponse, error) {

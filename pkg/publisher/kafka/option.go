@@ -17,6 +17,7 @@ type options struct {
 
 	defaultTopic  string
 	topicMappings config.TopicMappings
+	messageFormat string
 }
 
 func (o options) validate() error {
@@ -28,6 +29,9 @@ func (o options) validate() error {
 	}
 	if o.defaultTopic == "" && len(o.topicMappings.Mappings) == 0 {
 		return errors.New("kafka default topic or topic mappings must be provided")
+	}
+	if o.messageFormat == "" {
+		return errors.New("publisher message format must not be empty")
 	}
 	return nil
 }
@@ -75,5 +79,11 @@ func WithConfigMap(configMap kafka.ConfigMap) Option {
 func WithWorkers(v int) Option {
 	return optionFunc(func(o *options) {
 		o.workers = v
+	})
+}
+
+func WithMessageFormat(s string) Option {
+	return optionFunc(func(o *options) {
+		o.messageFormat = s
 	})
 }
