@@ -5,14 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/sns"
+	"github.com/aws/aws-sdk-go-v2/service/sns/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/grepplabs/mqtt-proxy/pkg/util"
 	"strconv"
-	"sync"
-
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	"strings"
 
 	"github.com/grepplabs/mqtt-proxy/apis"
 	"github.com/grepplabs/mqtt-proxy/pkg/log"
@@ -29,16 +28,14 @@ const (
 )
 
 const (
-	publisherName = "sqs"
+	publisherName = "sns"
 )
 
 type Publisher struct {
 	done   *runtime.DoneChannel
 	logger log.Logger
-	client *sqs.Client
+	client *sns.Client
 	opts   options
-
-	queueUrls sync.Map
 }
 
 func New(logger log.Logger, _ *prometheus.Registry, opts ...Option) (*Publisher, error) {
@@ -69,36 +66,16 @@ func (p *Publisher) Name() string {
 	return publisherName
 }
 
-func (p *Publisher) getGetQueueURL(ctx context.Context, mqttTopic string) (*string, error) {
-	queueName, err := p.findQueueName(mqttTopic)
-	if err != nil {
-		return nil, err
-	}
-	value, ok := p.queueUrls.Load(queueName)
-	if ok && value != nil {
-		return value.(*string), nil
-	}
-	output, err := p.client.GetQueueUrl(ctx, &sqs.GetQueueUrlInput{
-		QueueName: &queueName,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("GetQueueUrl '%s' failed: %w", queueName, err)
-	}
-	queueUrl := output.QueueUrl
-	p.queueUrls.Store(queueName, queueUrl)
-	return queueUrl, nil
-}
-
-func (p *Publisher) findQueueName(mqttTopic string) (string, error) {
-	for _, mapping := range p.opts.queueMappings.Mappings {
+func (p *Publisher) findTopicARN(mqttTopic string) (string, error) {
+	for _, mapping := range p.opts.topicARNMappings.Mappings {
 		if mapping.RegExp.MatchString(mqttTopic) {
 			return mapping.Topic, nil
 		}
 	}
-	if p.opts.defaultQueue != "" {
-		return p.opts.defaultQueue, nil
+	if p.opts.defaultTopicARN != "" {
+		return p.opts.defaultTopicARN, nil
 	}
-	return "", fmt.Errorf("sqs queue not found for MQTT topic %s", mqttTopic)
+	return "", fmt.Errorf("sns topic ARN not found for MQTT topic %s", mqttTopic)
 }
 
 func (p *Publisher) Publish(ctx context.Context, request *apis.PublishRequest) (*apis.PublishResponse, error) {
@@ -128,7 +105,7 @@ func (p *Publisher) sendMessage(ctx context.Context, request *apis.PublishReques
 	if request == nil {
 		return nil, errors.New("empty request")
 	}
-	queueURL, err := p.getGetQueueURL(ctx, request.TopicName)
+	topicARN, err := p.findTopicARN(request.TopicName)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +114,7 @@ func (p *Publisher) sendMessage(ctx context.Context, request *apis.PublishReques
 		return nil, err
 	}
 	messageID := aws.String(strconv.FormatUint(uint64(request.MessageID), 10))
-	input := &sqs.SendMessageInput{
+	input := &sns.PublishInput{
 		MessageAttributes: map[string]types.MessageAttributeValue{
 			mqttDupAttribute: {
 				DataType:    aws.String("String.bool"),
@@ -160,13 +137,15 @@ func (p *Publisher) sendMessage(ctx context.Context, request *apis.PublishReques
 				StringValue: aws.String(p.opts.messageFormat),
 			},
 		},
-		MessageBody: aws.String(string(messageBody)),
-		//TODO: use MQTT ClientIdentifier
-		MessageGroupId:         aws.String("mqtt-proxy"),
-		MessageDeduplicationId: messageID,
-		QueueUrl:               queueURL,
+		Message:  aws.String(string(messageBody)),
+		TopicArn: aws.String(topicARN),
 	}
-	output, err := p.client.SendMessage(ctx, input)
+	if strings.HasSuffix(topicARN, ".fifo") {
+		//TODO: use MQTT ClientIdentifier
+		input.MessageGroupId = aws.String("mqtt-proxy")
+		input.MessageDeduplicationId = messageID
+	}
+	output, err := p.client.Publish(ctx, input)
 	var publishID apis.PublishID
 	if err == nil {
 		publishID = aws.ToString(output.MessageId)
@@ -193,14 +172,14 @@ func (p *Publisher) Shutdown(err error) {
 }
 
 func (p *Publisher) Close() error {
-	defer p.logger.Infof("sqs publisher closed")
+	defer p.logger.Infof("sns publisher closed")
 
 	p.done.Close()
 
 	return nil
 }
 
-func newClient(logger log.Logger, options options) (*sqs.Client, error) {
+func newClient(logger log.Logger, options options) (*sns.Client, error) {
 	opts := make([]func(*awsconfig.LoadOptions) error, 0)
 	opts = append(opts, awsconfig.WithRegion(options.region))
 	opts = append(opts, awsconfig.WithSharedConfigProfile(options.profile))
@@ -211,8 +190,8 @@ func newClient(logger log.Logger, options options) (*sqs.Client, error) {
 	stsClient := sts.NewFromConfig(cfg)
 	output, err := stsClient.GetCallerIdentity(context.Background(), &sts.GetCallerIdentityInput{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get caller identity for SQS client %w", err)
+		return nil, fmt.Errorf("failed to get caller identity for SNS client %w", err)
 	}
-	logger.Infof("Creating SQS client with identity %s", aws.ToString(output.UserId))
-	return sqs.NewFromConfig(cfg), nil
+	logger.Infof("Creating SNS client with identity %s", aws.ToString(output.UserId))
+	return sns.NewFromConfig(cfg), nil
 }

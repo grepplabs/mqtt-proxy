@@ -16,6 +16,7 @@ const (
 	PublisherNoop  = "noop"
 	PublisherKafka = "kafka"
 	PublisherSQS   = "sqs"
+	PublisherSNS   = "sns"
 )
 
 // authenticator names
@@ -93,9 +94,15 @@ type Server struct {
 			SQS struct {
 				AWSProfile    string        `default:"" help:"AWS Profile."`
 				AWSRegion     string        `default:"" help:"AWS Region."`
-				DefaultQueue  string        `default:"" help:"Default Kafka topic for MQTT publish messages."`
+				DefaultQueue  string        `default:"" help:"Default SQS topic for MQTT publish messages."`
 				QueueMappings TopicMappings `placeholder:"QUEUE=REGEX" help:"Comma separated list of SQS queue to MQTT topic mappings."`
 			} `embed:"" prefix:"sqs."`
+			SNS struct {
+				AWSProfile       string        `default:"" help:"AWS Profile."`
+				AWSRegion        string        `default:"" help:"AWS Region."`
+				DefaultTopicARN  string        `default:"" help:"Default topic ARN for MQTT publish messages."`
+				TopicARNMappings TopicMappings `placeholder:"TOPIC_ARN=REGEX" help:"Comma separated list of topic ARNs to MQTT topic mappings."`
+			} `embed:"" prefix:"sns."`
 		} `embed:"" prefix:"publisher."`
 	} `embed:"" prefix:"mqtt."`
 }
@@ -109,7 +116,7 @@ func ServerVars() kong.Vars {
 		"AuthDefault":              AuthNoop,
 		"AuthEnum":                 strings.Join([]string{AuthNoop, AuthPlain}, ", "),
 		"PublisherDefault":         PublisherNoop,
-		"PublisherEnum":            strings.Join([]string{PublisherNoop, PublisherKafka, PublisherSQS}, ", "),
+		"PublisherEnum":            strings.Join([]string{PublisherNoop, PublisherKafka, PublisherSQS, PublisherSNS}, ", "),
 		"MessageFormatDefault":     MessageFormatPlain,
 		"MessageFormatEnum":        strings.Join([]string{MessageFormatPlain, MessageFormatBase64, MessageFormatJson}, ", "),
 	}

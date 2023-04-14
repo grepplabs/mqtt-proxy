@@ -16,6 +16,7 @@ import (
 	pubinst "github.com/grepplabs/mqtt-proxy/pkg/publisher/instrument"
 	pubkafka "github.com/grepplabs/mqtt-proxy/pkg/publisher/kafka"
 	pubnoop "github.com/grepplabs/mqtt-proxy/pkg/publisher/noop"
+	pubsns "github.com/grepplabs/mqtt-proxy/pkg/publisher/sns"
 	pubsqs "github.com/grepplabs/mqtt-proxy/pkg/publisher/sqs"
 	httpserver "github.com/grepplabs/mqtt-proxy/pkg/server/http"
 	mqttserver "github.com/grepplabs/mqtt-proxy/pkg/server/mqtt"
@@ -118,6 +119,17 @@ func runServer(
 			)
 			if err != nil {
 				return fmt.Errorf("setup sqs publisher: %w", err)
+			}
+		case config.PublisherSNS:
+			publisher, err = pubsns.New(logger, registry,
+				pubsns.WithAWSProfile(cfg.MQTT.Publisher.SNS.AWSProfile),
+				pubsns.WithAWSRegion(cfg.MQTT.Publisher.SNS.AWSRegion),
+				pubsns.WithTopicARNMappings(cfg.MQTT.Publisher.SNS.TopicARNMappings),
+				pubsns.WithDefaultTopicARN(cfg.MQTT.Publisher.SNS.DefaultTopicARN),
+				pubsns.WithMessageFormat(cfg.MQTT.Publisher.MessageFormat),
+			)
+			if err != nil {
+				return fmt.Errorf("setup sns publisher: %w", err)
 			}
 		default:
 			return fmt.Errorf("unknown publisher %s", cfg.MQTT.Publisher.Name)

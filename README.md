@@ -19,7 +19,7 @@ MQTT Proxy allows MQTT clients to send messages to other messaging systems
     * [x] Noop
     * [x] [Apache Kafka](https://kafka.apache.org/)
     * [x] [Amazon SQS](https://aws.amazon.com/sqs/)
-    * [ ] [Amazon SNS](https://aws.amazon.com/sns/)
+    * [x] [Amazon SNS](https://aws.amazon.com/sns/)
     * [ ] [Amazon Kinesis](https://aws.amazon.com/kinesis/)
     * [ ] Others
 * Authentication
@@ -152,6 +152,27 @@ prerequisites
       --mqtt.publisher.sqs.queue-mappings=test1='^dummy$' \
       --mqtt.publisher.sqs.default-queue=test2.fifo \
       --mqtt.publisher.sqs.aws-profile=admin-dev
+    ```
+
+3. publish
+
+    ```
+    mosquitto_pub -L mqtt://localhost:1883/dummy -m "test qos 0" --repeat 1 -q 2
+    ```
+
+### SNS publisher
+
+1. Create AWS SNS `test1` and `test2.fifo` topics with some subscription
+2. Build and start MQTT Proxy
+
+    ```
+    make build
+   ./mqtt-proxy server \
+      --mqtt.publisher.name=sns \
+      --mqtt.publisher.message-format=json \
+      --mqtt.publisher.sns.topic-arn-mappings=arn:aws:sns:eu-central-1:123456789012:test1='^dummy$' \
+      --mqtt.publisher.sns.default-topic-arn=arn:aws:sns:eu-central-1:123456789012:test2.fifo \
+      --mqtt.publisher.sns.aws-profile=admin-dev
     ```
 
 3. publish
