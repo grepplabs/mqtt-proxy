@@ -19,12 +19,17 @@ type Properties interface {
 
 	ProtocolVersion() byte   // Returns the protocol
 	SetProtocolVersion(byte) // Stores the protocol version
+
+	ClientIdentifier() string   // Returns the client identifier
+	SetClientIdentifier(string) // Store the client identifier
+
 }
 
 type properties struct {
-	idleTimeout     atomic.Duration
-	authenticated   atomic.Bool
-	protocolVersion atomic.Uint32
+	idleTimeout      atomic.Duration
+	authenticated    atomic.Bool
+	protocolVersion  atomic.Uint32
+	clientIdentifier atomic.String
 }
 
 func (w *properties) IdleTimeout() time.Duration {
@@ -49,6 +54,14 @@ func (w *properties) SetProtocolVersion(b byte) {
 
 func (w *properties) ProtocolVersion() byte {
 	return byte(w.protocolVersion.Load())
+}
+
+func (w *properties) ClientIdentifier() string {
+	return w.clientIdentifier.Load()
+}
+
+func (w *properties) SetClientIdentifier(s string) {
+	w.clientIdentifier.Store(s)
 }
 
 // Conn interface is used by a handler to send mqtt messages.

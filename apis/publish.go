@@ -13,6 +13,7 @@ type PublishRequest struct {
 	TopicName string `json:"topic_name"`
 	MessageID uint16 `json:"packet_id"`
 	Message   []byte `json:"payload"`
+	ClientID  string `json:"client_id"`
 }
 
 type PublishResponse struct {

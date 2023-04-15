@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/grepplabs/mqtt-proxy/pkg/util"
 	"strconv"
+	"strings"
 	"sync"
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -161,10 +162,11 @@ func (p *Publisher) sendMessage(ctx context.Context, request *apis.PublishReques
 			},
 		},
 		MessageBody: aws.String(string(messageBody)),
-		//TODO: use MQTT ClientIdentifier
-		MessageGroupId:         aws.String("mqtt-proxy"),
-		MessageDeduplicationId: messageID,
-		QueueUrl:               queueURL,
+		QueueUrl:    queueURL,
+	}
+	if strings.HasSuffix(*queueURL, ".fifo") {
+		input.MessageGroupId = aws.String(p.GetMessageGroupId(request))
+		input.MessageDeduplicationId = messageID
 	}
 	output, err := p.client.SendMessage(ctx, input)
 	var publishID apis.PublishID
@@ -175,6 +177,14 @@ func (p *Publisher) sendMessage(ctx context.Context, request *apis.PublishReques
 		ID:    publishID,
 		Error: err,
 	}, nil
+}
+
+func (p *Publisher) GetMessageGroupId(request *apis.PublishRequest) string {
+	messageGroupId := request.ClientID
+	if messageGroupId == "" {
+		messageGroupId = "mqtt-proxy"
+	}
+	return messageGroupId
 }
 
 func (p *Publisher) Serve() error {

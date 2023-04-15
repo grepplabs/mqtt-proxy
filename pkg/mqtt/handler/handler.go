@@ -55,7 +55,7 @@ func (h *MQTTHandler) disconnectUnauthenticated(conn mqttserver.Conn, packetName
 }
 
 func (h *MQTTHandler) handleConnect(conn mqttserver.Conn, packet mqttproto.ControlPacket) {
-	username, password, keepAliveSeconds, err := h.getConnectData(packet)
+	username, password, clientIdentifier, keepAliveSeconds, err := h.getConnectData(packet)
 	if err != nil {
 		h.logger.Error(err.Error())
 		_ = conn.Close()
@@ -74,6 +74,7 @@ func (h *MQTTHandler) handleConnect(conn mqttserver.Conn, packet mqttproto.Contr
 	}
 	authenticated := returnCode == mqttproto.Accepted
 	conn.Properties().SetAuthenticated(authenticated)
+	conn.Properties().SetClientIdentifier(clientIdentifier)
 
 	res, err := h.getConnectAck(packet, returnCode)
 	if err != nil {
@@ -94,14 +95,14 @@ func (h *MQTTHandler) handleConnect(conn mqttserver.Conn, packet mqttproto.Contr
 	}
 }
 
-func (h *MQTTHandler) getConnectData(packet mqttproto.ControlPacket) (username string, password string, keepAliveSeconds uint16, err error) {
+func (h *MQTTHandler) getConnectData(packet mqttproto.ControlPacket) (username string, password string, clientIdentifier string, keepAliveSeconds uint16, err error) {
 	switch req := packet.(type) {
 	case *mqtt311.ConnectPacket:
-		return req.Username, string(req.Password), req.KeepAliveSeconds, nil
+		return req.Username, string(req.Password), req.ClientIdentifier, req.KeepAliveSeconds, nil
 	case *mqtt5.ConnectPacket:
-		return req.Username, string(req.Password), req.KeepAliveSeconds, nil
+		return req.Username, string(req.Password), req.ClientIdentifier, req.KeepAliveSeconds, nil
 	default:
-		return "", "", 0, fmt.Errorf("unsupported connect packet type %v", reflect.TypeOf(packet))
+		return "", "", "", 0, fmt.Errorf("unsupported connect packet type %v", reflect.TypeOf(packet))
 	}
 }
 
@@ -139,7 +140,7 @@ func (h *MQTTHandler) loginUser(username, password string) (byte, error) {
 }
 
 func (h *MQTTHandler) handlePublish(conn mqttserver.Conn, packet mqttproto.ControlPacket) {
-	publishRequest, err := h.getPublishRequest(packet)
+	publishRequest, err := h.getPublishRequest(conn, packet)
 	if err != nil {
 		h.logger.Error(err.Error())
 		_ = conn.Close()
@@ -277,7 +278,7 @@ func (h *MQTTHandler) isPublishAsync(qos byte) bool {
 	return false
 }
 
-func (h *MQTTHandler) getPublishRequest(packet mqttproto.ControlPacket) (*apis.PublishRequest, error) {
+func (h *MQTTHandler) getPublishRequest(conn mqttserver.Conn, packet mqttproto.ControlPacket) (*apis.PublishRequest, error) {
 	switch req := packet.(type) {
 	case *mqtt311.PublishPacket:
 		return &apis.PublishRequest{
@@ -287,6 +288,7 @@ func (h *MQTTHandler) getPublishRequest(packet mqttproto.ControlPacket) (*apis.P
 			TopicName: req.TopicName,
 			MessageID: req.MessageID,
 			Message:   req.Message,
+			ClientID:  conn.Properties().ClientIdentifier(),
 		}, nil
 	case *mqtt5.PublishPacket:
 		return &apis.PublishRequest{
@@ -296,6 +298,7 @@ func (h *MQTTHandler) getPublishRequest(packet mqttproto.ControlPacket) (*apis.P
 			TopicName: req.TopicName,
 			MessageID: req.MessageID,
 			Message:   req.Message,
+			ClientID:  conn.Properties().ClientIdentifier(),
 		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported publish packet type %v", reflect.TypeOf(packet))

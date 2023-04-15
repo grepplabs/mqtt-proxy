@@ -114,6 +114,7 @@ func (p *Publisher) sendMessage(ctx context.Context, request *apis.PublishReques
 		return nil, err
 	}
 	messageID := aws.String(strconv.FormatUint(uint64(request.MessageID), 10))
+
 	input := &sns.PublishInput{
 		MessageAttributes: map[string]types.MessageAttributeValue{
 			mqttDupAttribute: {
@@ -141,8 +142,7 @@ func (p *Publisher) sendMessage(ctx context.Context, request *apis.PublishReques
 		TopicArn: aws.String(topicARN),
 	}
 	if strings.HasSuffix(topicARN, ".fifo") {
-		//TODO: use MQTT ClientIdentifier
-		input.MessageGroupId = aws.String("mqtt-proxy")
+		input.MessageGroupId = aws.String(p.GetMessageGroupId(request))
 		input.MessageDeduplicationId = messageID
 	}
 	output, err := p.client.Publish(ctx, input)
@@ -154,6 +154,14 @@ func (p *Publisher) sendMessage(ctx context.Context, request *apis.PublishReques
 		ID:    publishID,
 		Error: err,
 	}, nil
+}
+
+func (p *Publisher) GetMessageGroupId(request *apis.PublishRequest) string {
+	messageGroupId := request.ClientID
+	if messageGroupId == "" {
+		messageGroupId = "mqtt-proxy"
+	}
+	return messageGroupId
 }
 
 func (p *Publisher) Serve() error {

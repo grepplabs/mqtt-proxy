@@ -37,7 +37,7 @@ func TestGetMessageBody(t *testing.T) {
 		{
 			name:   "json",
 			format: config.MessageFormatJson,
-			body:   `{"dup":false,"qos":1,"retain":true,"topic_name":"test-topic","packet_id":4711,"payload":"aG90"}`,
+			body:   `{"dup":false,"qos":1,"retain":true,"topic_name":"test-topic","packet_id":4711,"payload":"aG90","client_id":""}`,
 		},
 		{
 			name:   "unsupported",
