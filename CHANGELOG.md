@@ -1,5 +1,11 @@
 ## Changelog
 
+
+### [v0.4.0](https://github.com/grepplabs/mqtt-proxy/releases/tag/v0.4.0) - 15 April 2023
+
+* Add AWS SQS and SNS support
+* Flag `--mqtt.publisher.message-format` allows selection of message format: `plain`, `base64` and `json`
+
 ### [v0.3.0](https://github.com/grepplabs/mqtt-proxy/releases/tag/v0.3.0) - 11 April 2023
 
 * Update confluent-kafka-go to v2.0.2
