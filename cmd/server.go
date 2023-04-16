@@ -16,6 +16,7 @@ import (
 	pubinst "github.com/grepplabs/mqtt-proxy/pkg/publisher/instrument"
 	pubkafka "github.com/grepplabs/mqtt-proxy/pkg/publisher/kafka"
 	pubnoop "github.com/grepplabs/mqtt-proxy/pkg/publisher/noop"
+	pubrabbitmq "github.com/grepplabs/mqtt-proxy/pkg/publisher/rabbitmq"
 	pubsns "github.com/grepplabs/mqtt-proxy/pkg/publisher/sns"
 	pubsqs "github.com/grepplabs/mqtt-proxy/pkg/publisher/sqs"
 	httpserver "github.com/grepplabs/mqtt-proxy/pkg/server/http"
@@ -130,6 +131,27 @@ func runServer(
 			)
 			if err != nil {
 				return fmt.Errorf("setup sns publisher: %w", err)
+			}
+		case config.PublisherRabbitMQ:
+			publisher, err = pubrabbitmq.New(logger, registry,
+				pubrabbitmq.WithScheme(cfg.MQTT.Publisher.RabbitMQ.Scheme),
+				pubrabbitmq.WithHost(cfg.MQTT.Publisher.RabbitMQ.Host),
+				pubrabbitmq.WithPort(cfg.MQTT.Publisher.RabbitMQ.Port),
+				pubrabbitmq.WithUsername(cfg.MQTT.Publisher.RabbitMQ.Username),
+				pubrabbitmq.WithPassword(cfg.MQTT.Publisher.RabbitMQ.Password),
+				pubrabbitmq.WithVHost(cfg.MQTT.Publisher.RabbitMQ.VHost),
+				pubrabbitmq.WithExchange(cfg.MQTT.Publisher.RabbitMQ.Exchange),
+				pubrabbitmq.WithConnectionTimeout(cfg.MQTT.Publisher.RabbitMQ.ConnectionTimeout),
+				pubrabbitmq.WithRequestTimeout(cfg.MQTT.Publisher.RabbitMQ.RequestTimeout),
+				pubrabbitmq.WithQueueMappings(cfg.MQTT.Publisher.RabbitMQ.QueueMappings),
+				pubrabbitmq.WithDefaultQueue(cfg.MQTT.Publisher.RabbitMQ.DefaultQueue),
+				pubrabbitmq.WithMessageFormat(cfg.MQTT.Publisher.MessageFormat),
+				pubrabbitmq.WithPublisherConfirmsAtLeastOnce(cfg.MQTT.Publisher.RabbitMQ.PublisherConfirms.AtLeastOnce),
+				pubrabbitmq.WithPublisherConfirmsAtMostOnce(cfg.MQTT.Publisher.RabbitMQ.PublisherConfirms.AtMostOnce),
+				pubrabbitmq.WithPublisherConfirmsExactlyOnce(cfg.MQTT.Publisher.RabbitMQ.PublisherConfirms.ExactlyOnce),
+			)
+			if err != nil {
+				return fmt.Errorf("setup rabbitmq publisher: %w", err)
 			}
 		default:
 			return fmt.Errorf("unknown publisher %s", cfg.MQTT.Publisher.Name)

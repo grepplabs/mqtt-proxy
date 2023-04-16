@@ -21,6 +21,7 @@ MQTT Proxy allows MQTT clients to send messages to other messaging systems
     * [x] [Amazon SQS](https://aws.amazon.com/sqs/)
     * [x] [Amazon SNS](https://aws.amazon.com/sns/)
     * [ ] [Amazon Kinesis](https://aws.amazon.com/kinesis/)
+    * [ ] [RabbitMQ](https://www.rabbitmq.com/)
     * [ ] Others
 * Authentication
     * [x] Noop
@@ -157,7 +158,7 @@ prerequisites
 3. publish
 
     ```
-    mosquitto_pub -L mqtt://localhost:1883/dummy -m "test qos 0" --repeat 1 -q 2
+    mosquitto_pub -L mqtt://localhost:1883/dummy -m "test qos 2" --repeat 1 -q 2
     ```
 
 ### SNS publisher
@@ -178,7 +179,36 @@ prerequisites
 3. publish
 
     ```
-    mosquitto_pub -L mqtt://localhost:1883/dummy -m "test qos 0" --repeat 1 -q 2
+    mosquitto_pub -L mqtt://localhost:1883/dummy -m "test qos 2" --repeat 1 -q 2
+    ```
+
+
+### RabbitMQ publisher
+1. Start rabbitmq and create test queue
+
+    ```
+    cd scripts/rabbitmq
+    docker-compose up
+    curl -i -u user:bitnami -H "content-type:application/json" -XPUT -d'{"durable":true}' http://localhost:15672/api/queues/%2f/test
+    ```
+
+
+2. Build and start MQTT Proxy
+
+    ```
+    make build
+   ./mqtt-proxy server \
+      --mqtt.publisher.name=rabbitmq \
+      --mqtt.publisher.rabbitmq.username=user \
+      --mqtt.publisher.rabbitmq.password=bitnami \
+      --mqtt.publisher.rabbitmq.default-queue=test \
+      --mqtt.publisher.rabbitmq.confirms.exactly-once=true
+    ```
+
+3. publish
+
+    ```
+    mosquitto_pub -L mqtt://localhost:1883/dummy -m "test qos 0" --repeat 1 -q 0
     ```
 
 ### plain authenticator

@@ -108,6 +108,7 @@ func TestConfigValidation(t *testing.T) {
 				s.MQTT.ListenAddress = "localhost:1883"
 				s.MQTT.Publisher.Name = PublisherNoop
 				s.MQTT.Publisher.Kafka.Workers = 1
+				s.MQTT.Publisher.RabbitMQ.Port = 5672
 				return s
 			},
 		},
@@ -120,6 +121,7 @@ func TestConfigValidation(t *testing.T) {
 				s.MQTT.Publisher.Name = PublisherKafka
 				s.MQTT.Publisher.Kafka.BootstrapServers = "localhost:9092"
 				s.MQTT.Publisher.Kafka.Workers = 1
+				s.MQTT.Publisher.RabbitMQ.Port = 5672
 				return s
 			},
 		},
@@ -140,6 +142,7 @@ func TestConfigValidation(t *testing.T) {
 				s.MQTT.Publisher.Kafka.BootstrapServers = "localhost:9092"
 				s.MQTT.Publisher.Kafka.GracePeriod = 10 * time.Second
 				s.MQTT.Publisher.Kafka.Workers = 10
+				s.MQTT.Publisher.RabbitMQ.Port = 5672
 				return s
 			},
 		},

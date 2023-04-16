@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -13,10 +14,11 @@ import (
 
 // publisher names
 const (
-	PublisherNoop  = "noop"
-	PublisherKafka = "kafka"
-	PublisherSQS   = "sqs"
-	PublisherSNS   = "sns"
+	PublisherNoop     = "noop"
+	PublisherKafka    = "kafka"
+	PublisherSQS      = "sqs"
+	PublisherSNS      = "sns"
+	PublisherRabbitMQ = "rabbitmq"
 )
 
 // authenticator names
@@ -103,6 +105,24 @@ type Server struct {
 				DefaultTopicARN  string        `default:"" help:"Default topic ARN for MQTT publish messages."`
 				TopicARNMappings TopicMappings `placeholder:"TOPIC_ARN=REGEX" help:"Comma separated list of topic ARNs to MQTT topic mappings."`
 			} `embed:"" prefix:"sns."`
+			RabbitMQ struct {
+				Scheme            string        `default:"${RabbitMQSchemeDefault}" enum:"${RabbitMQSchemeEnum}" help:"Rabbitmq URI scheme. One of: [${RabbitMQSchemeEnum}]"`
+				Host              string        `default:"localhost" help:"Rabbitmq host."`
+				Port              int           `default:"5672" help:"Rabbitmq port." validate:"gte=1"`
+				Username          string        `default:"" help:"Rabbitmq username."`
+				Password          string        `default:"${RabbitMQPassword}" help:"Rabbitmq password."`
+				VHost             string        `default:"/" help:"Rabbitmq vhost."`
+				ConnectionTimeout time.Duration `default:"10s" help:"Rabbitmq connection timeout." validate:"gte=0"`
+				RequestTimeout    time.Duration `default:"3s" help:"Rabbitmq request timeout." validate:"gte=0"`
+				Exchange          string        `default:"" help:"Rabbitmq exchange."`
+				DefaultQueue      string        `default:"" help:"Default rabbitmq queue for MQTT publish messages."`
+				QueueMappings     TopicMappings `placeholder:"QUEUE=REGEX" help:"Comma separated list of rabbitmq queue to MQTT topic mappings."`
+				PublisherConfirms struct {
+					AtMostOnce  bool `default:"false" help:"Publisher confirms for AT_MOST_ONCE QoS."`
+					AtLeastOnce bool `default:"false" help:"Publisher confirms for AT_LEAST_ONCE QoS."`
+					ExactlyOnce bool `default:"false" help:"Publisher confirms for EXACTLY_ONCE QoS."`
+				} `embed:"" prefix:"confirms."`
+			} `embed:"" prefix:"rabbitmq."`
 		} `embed:"" prefix:"publisher."`
 	} `embed:"" prefix:"mqtt."`
 }
@@ -116,9 +136,12 @@ func ServerVars() kong.Vars {
 		"AuthDefault":              AuthNoop,
 		"AuthEnum":                 strings.Join([]string{AuthNoop, AuthPlain}, ", "),
 		"PublisherDefault":         PublisherNoop,
-		"PublisherEnum":            strings.Join([]string{PublisherNoop, PublisherKafka, PublisherSQS, PublisherSNS}, ", "),
+		"PublisherEnum":            strings.Join([]string{PublisherNoop, PublisherKafka, PublisherSQS, PublisherSNS, PublisherRabbitMQ}, ", "),
 		"MessageFormatDefault":     MessageFormatPlain,
 		"MessageFormatEnum":        strings.Join([]string{MessageFormatPlain, MessageFormatBase64, MessageFormatJson}, ", "),
+		"RabbitMQSchemeDefault":    "amqp",
+		"RabbitMQSchemeEnum":       strings.Join([]string{"amqp", "amqps"}, ", "),
+		"RabbitMQPassword":         os.Getenv("MQTT_PUBLISHER_RABBITMQ_PASSWORD"),
 	}
 }
 
