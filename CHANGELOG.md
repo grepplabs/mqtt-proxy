@@ -1,5 +1,8 @@
 ## Changelog
 
+### [v0.5.0](https://github.com/grepplabs/mqtt-proxy/releases/tag/v0.5.0) - 13 May 2023
+
+* Add RabbitMQ support
 
 ### [v0.4.0](https://github.com/grepplabs/mqtt-proxy/releases/tag/v0.4.0) - 15 April 2023
 

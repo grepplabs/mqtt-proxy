@@ -21,7 +21,7 @@ MQTT Proxy allows MQTT clients to send messages to other messaging systems
     * [x] [Amazon SQS](https://aws.amazon.com/sqs/)
     * [x] [Amazon SNS](https://aws.amazon.com/sns/)
     * [ ] [Amazon Kinesis](https://aws.amazon.com/kinesis/)
-    * [ ] [RabbitMQ](https://www.rabbitmq.com/)
+    * [x] [RabbitMQ](https://www.rabbitmq.com/)
     * [ ] Others
 * Authentication
     * [x] Noop
