@@ -66,6 +66,8 @@ func (p *PubrelPacket) Unpack(b io.Reader) (err error) {
 		if err != nil {
 			return err
 		}
+	}
+	if p.RemainingLength > 3 {
 		err = p.PubrelProperties.Unpack(b)
 		if err != nil {
 			return err
